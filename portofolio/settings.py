@@ -31,7 +31,11 @@ SECRET_KEY = 'django-insecure-ohm^5i&bdw2v*s1mnnaq8)yr)h#vsls5%*b9z-c!8rv+2u=c*^
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    "david-mesakh-myportofolio.pws.cs.ui.ac.id",
+]
 
 PRODUCTION = os.getenv('PRODUCTION', 'False').lower() == 'true'
 
@@ -56,12 +60,12 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'myportofolio.urls'
+ROOT_URLCONF = 'portofolio.urls'
 
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -73,7 +77,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'myportofolio.wsgi.application'
+WSGI_APPLICATION = 'portofolio.wsgi.application'
 
 
 # Database
@@ -138,6 +142,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = 'static/'
+STATICFILES_DIRS = [BASE_DIR / 'static']
 
 
 # Email
