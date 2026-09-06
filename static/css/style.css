@@ -246,6 +246,104 @@ h1, .brand {
     margin-top: 1rem;
 }
 
+.awards {
+    padding: 6rem 0;
+    border-top: 1px solid var(--line);
+    scroll-margin-top: 1.5rem;
+}
+
+.awards-intro {
+    margin-bottom: 3.5rem;
+}
+
+.awards-label {
+    margin-bottom: 1rem;
+    color: var(--accent-dark);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+}
+
+.awards h2,
+.awards h3 {
+    font-family: "Space Grotesk", -apple-system, sans-serif;
+}
+
+.awards h2 {
+    font-size: clamp(2rem, 5vw, 3rem);
+    line-height: 1.2;
+}
+
+.awards-item {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas: "content photo";
+    align-items: center;
+    gap: 3rem;
+    padding: 2rem 0;
+    border-top: 1px solid var(--line);
+}
+
+.awards-item-reversed {
+    grid-template-areas: "photo content";
+}
+
+.awards-item:last-child {
+    padding-bottom: 0;
+}
+
+.awards-content {
+    grid-area: content;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.awards h3 {
+    font-size: clamp(1.25rem, 2.5vw, 1.5rem);
+    line-height: 1.35;
+    margin-bottom: 0.75rem;
+}
+
+.awards-achievement {
+    color: var(--accent-dark);
+    font-weight: 600;
+}
+
+.awards-year {
+    margin-top: 0.5rem;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.awards-description {
+    margin-top: 1.25rem;
+    max-width: 55ch;
+    color: var(--text-muted);
+    line-height: 1.75;
+}
+
+.awards-photo {
+    grid-area: photo;
+    width: 100%;
+    max-width: 22rem;
+    min-width: 0;
+    justify-self: center;
+}
+
+.awards-photo img {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    border: 1px solid var(--ink);
+    border-radius: var(--radius);
+}
+
+.awards-photo img[src$="award-fls2n-2023.jpeg"] {
+    object-position: center 75%;
+}
+
 .site-header nav a:hover {
     color: var(--accent-dark);
 }
@@ -263,6 +361,24 @@ a:focus-visible {
 }
 
 @media (max-width: 600px) {
+    .site-header nav {
+        gap: 0.75rem 1.25rem;
+    }
+
+    .awards {
+        padding: 3rem 0 4rem;
+    }
+
+    .awards-intro {
+        margin-bottom: 2rem;
+    }
+
+    .awards-item {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: "content" "photo";
+        gap: 1.5rem;
+    }
+
     .experience {
         padding: 3rem 0 4rem;
     }
