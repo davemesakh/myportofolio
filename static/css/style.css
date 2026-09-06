@@ -39,6 +39,8 @@ h1, .brand {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
     padding: 1.25rem 1.5rem;
 }
 
@@ -51,6 +53,7 @@ h1, .brand {
 
 .site-header nav {
     display: flex;
+    flex-wrap: wrap;
     gap: 2rem;
 }
 
@@ -66,7 +69,7 @@ h1, .brand {
 
 .hero-grid {
     display: grid;
-    grid-template-columns: 1.3fr 1fr;
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
     grid-template-areas:
         "identity photo"
         "details  photo";
@@ -103,6 +106,7 @@ h1, .brand {
 
 .meta-list {
     display: flex;
+    flex-wrap: wrap;
     gap: 2rem;
     margin-bottom: 1.5rem;
 }
@@ -169,6 +173,88 @@ h1, .brand {
     border: 3px solid var(--ink);
 }
 
+.experience {
+    padding: 6rem 0;
+    border-top: 1px solid var(--line);
+    scroll-margin-top: 1.5rem;
+}
+
+.experience h2,
+.experience-organization {
+    font-family: "Space Grotesk", -apple-system, sans-serif;
+}
+
+.experience h2 {
+    font-size: clamp(2rem, 5vw, 3rem);
+    line-height: 1.2;
+}
+
+.experience-intro {
+    margin-bottom: 3.5rem;
+}
+
+.experience-label {
+    margin-bottom: 1rem;
+    color: var(--accent-dark);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+}
+
+.experience-item {
+    display: grid;
+    grid-template-columns: 10.5rem minmax(0, 1fr);
+    gap: 1rem 2.5rem;
+    padding: 2rem 0;
+    border-top: 1px solid var(--line);
+    overflow-wrap: anywhere;
+}
+
+.experience-item:last-child {
+    padding-bottom: 0;
+}
+
+.experience-content {
+    min-width: 0;
+}
+
+.experience-organization {
+    font-size: clamp(1.25rem, 2.5vw, 1.5rem);
+    line-height: 1.35;
+    margin-bottom: 0.5rem;
+}
+
+.experience-role {
+    color: var(--ink);
+    font-weight: 600;
+}
+
+.experience-period {
+    padding-top: 0.25rem;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.experience-contributions {
+    max-width: 65ch;
+    margin-top: 1.25rem;
+    color: var(--text-muted);
+    line-height: 1.75;
+}
+
+.experience-contributions p + p {
+    margin-top: 1rem;
+}
+
+.site-header nav a:hover {
+    color: var(--accent-dark);
+}
+
+a:focus-visible {
+    outline: 2px solid var(--accent-dark);
+    outline-offset: 4px;
+}
+
 .site-footer {
     padding: 1.5rem;
     color: var(--text-muted);
@@ -177,6 +263,23 @@ h1, .brand {
 }
 
 @media (max-width: 600px) {
+    .experience {
+        padding: 3rem 0 4rem;
+    }
+
+    .experience-intro {
+        margin-bottom: 2rem;
+    }
+
+    .experience-item {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.75rem;
+    }
+
+    .experience-period {
+        padding-top: 0;
+    }
+
     .hero-grid {
         grid-template-columns: 1fr;
         grid-template-areas:
