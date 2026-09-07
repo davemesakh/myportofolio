@@ -11,10 +11,21 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet" href="/static/css/style.css?v=readability-20260907">
+    <link rel="stylesheet" href="/static/css/style.css?v=floating-hearts-20260907">
 </head>
 
 <body>
+    <div class="background-hearts" aria-hidden="true">
+        <span class="background-heart"><span class="background-heart-shape"></span></span>
+        <span class="background-heart"><span class="background-heart-shape"></span></span>
+        <span class="background-heart"><span class="background-heart-shape"></span></span>
+        <span class="background-heart"><span class="background-heart-shape"></span></span>
+        <span class="background-heart"><span class="background-heart-shape"></span></span>
+        <span class="background-heart"><span class="background-heart-shape"></span></span>
+        <span class="background-heart"><span class="background-heart-shape"></span></span>
+        <span class="background-heart"><span class="background-heart-shape"></span></span>
+        <span class="background-heart"><span class="background-heart-shape"></span></span>
+    </div>
 
     <header class="site-header">
         <div class="container">
@@ -229,6 +240,10 @@
             <p>
                 &copy; 2026 David. Fakultas Ilmu Komputer, Universitas Indonesia.
             </p>
+            <div class="background-animation-control">
+                <input type="checkbox" id="background-animation-pause">
+                <label for="background-animation-pause">Pause background animation</label>
+            </div>
         </div>
     </footer>
 

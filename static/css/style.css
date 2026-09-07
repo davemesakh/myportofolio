@@ -23,10 +23,146 @@
 }
 
 body {
+    isolation: isolate;
     font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     color: var(--ink);
     background-color: var(--paper);
     line-height: 1.6;
+}
+
+/* Keep decoration above the page background and below interactive content. */
+body > .site-header,
+body > main,
+body > .site-footer {
+    position: relative;
+    z-index: 1;
+}
+
+.background-hearts {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.background-heart {
+    --heart-size: 20px;
+    --heart-drift: 24px;
+    position: absolute;
+    top: 100%;
+    left: 8%;
+    width: var(--heart-size);
+    height: var(--heart-size);
+    color: var(--accent);
+    opacity: 0;
+    animation: background-heart-float 24s linear infinite;
+    animation-delay: -8s;
+}
+
+.background-heart-shape {
+    position: absolute;
+    top: 25%;
+    left: 25%;
+    width: 58%;
+    height: 58%;
+    background-color: currentColor;
+    transform: rotate(-45deg);
+}
+
+.background-heart-shape::before,
+.background-heart-shape::after {
+    content: "";
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background-color: currentColor;
+}
+
+.background-heart-shape::before { top: -50%; }
+.background-heart-shape::after { left: 50%; }
+
+.background-heart:nth-child(2) {
+    left: 19%; --heart-size: 14px; --heart-drift: -20px;
+    animation-duration: 19s; animation-delay: -13s;
+    color: var(--decoration);
+}
+.background-heart:nth-child(3) {
+    left: 31%; --heart-size: 28px; --heart-drift: 32px;
+    animation-duration: 30s; animation-delay: -4s;
+}
+.background-heart:nth-child(4) {
+    left: 43%; --heart-size: 18px; --heart-drift: -28px;
+    animation-duration: 22s; animation-delay: -17s;
+    color: var(--decoration);
+}
+.background-heart:nth-child(5) {
+    left: 54%; --heart-size: 24px; --heart-drift: 18px;
+    animation-duration: 27s; animation-delay: -11s;
+}
+.background-heart:nth-child(6) {
+    left: 66%; --heart-size: 12px; --heart-drift: -22px;
+    animation-duration: 18s; animation-delay: -3s;
+}
+.background-heart:nth-child(7) {
+    left: 75%; --heart-size: 22px; --heart-drift: 30px;
+    animation-duration: 26s; animation-delay: -21s;
+    color: var(--decoration);
+}
+.background-heart:nth-child(8) {
+    left: 85%; --heart-size: 16px; --heart-drift: -18px;
+    animation-duration: 21s; animation-delay: -9s;
+}
+.background-heart:nth-child(9) {
+    left: 94%; --heart-size: 26px; --heart-drift: -32px;
+    animation-duration: 29s; animation-delay: -24s;
+}
+
+@keyframes background-heart-float {
+    0% { transform: translate(0, 32px) rotate(-12deg); opacity: 0; }
+    12% { opacity: 0.08; }
+    50% { opacity: 0.14; }
+    88% { opacity: 0.08; }
+    100% { transform: translate(var(--heart-drift), calc(-100vh - 48px)) rotate(18deg); opacity: 0; }
+}
+
+.background-animation-control {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    color: var(--ink);
+}
+
+.background-animation-control input {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+    accent-color: var(--accent);
+}
+
+.background-animation-control input:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 4px;
+}
+
+body:has(#background-animation-pause:checked) .background-heart {
+    animation-play-state: paused;
+}
+
+@media (max-width: 600px) {
+    .background-heart:nth-child(even) { display: none; }
+    .background-heart {
+        width: calc(var(--heart-size) * 0.75);
+        height: calc(var(--heart-size) * 0.75);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .background-hearts,
+    .background-animation-control { display: none; }
+    .background-heart { animation: none; }
 }
 
 h1, .brand {
