@@ -68,7 +68,7 @@ h1, .brand {
 .site-header nav a {
     color: var(--accent);
     text-decoration: none;
-    font-size: 0.95rem;
+    font-size: 1rem;
 }
 
 .hero {
@@ -93,7 +93,7 @@ h1, .brand {
 }
 
 .hero-kicker {
-    font-size: 0.85rem;
+    font-size: 0.9375rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--accent);
@@ -120,7 +120,7 @@ h1, .brand {
 }
 
 .meta-row dt {
-    font-size: 0.75rem;
+    font-size: 0.875rem;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--text-muted);
@@ -139,7 +139,7 @@ h1, .brand {
 
 .social-link {
     display: inline-block;
-    font-size: 0.85rem;
+    font-size: 1rem;
     font-weight: 600;
     text-decoration: none;
     color: var(--button-text);
@@ -203,7 +203,7 @@ h1, .brand {
     border-radius: var(--radius);
     background-color: var(--bubble);
     color: var(--ink);
-    font-size: 0.85rem;
+    font-size: 0.9375rem;
     font-weight: 600;
     opacity: 0;
     transform: translateY(4px);
@@ -283,7 +283,7 @@ h1, .brand {
 .experience-label {
     margin-bottom: 1rem;
     color: var(--accent);
-    font-size: 0.8rem;
+    font-size: 0.875rem;
     font-weight: 600;
     letter-spacing: 0.08em;
 }
@@ -342,7 +342,7 @@ h1, .brand {
     flex: 0 1 auto;
     padding-top: 0.25rem;
     color: var(--text-muted);
-    font-size: 0.85rem;
+    font-size: 1rem;
 }
 
 .experience-contributions {
@@ -370,7 +370,7 @@ h1, .brand {
 .awards-label {
     margin-bottom: 1rem;
     color: var(--accent);
-    font-size: 0.8rem;
+    font-size: 0.875rem;
     font-weight: 600;
     letter-spacing: 0.08em;
 }
@@ -423,7 +423,7 @@ h1, .brand {
 .awards-year {
     margin-top: 0.5rem;
     color: var(--text-muted);
-    font-size: 0.85rem;
+    font-size: 1rem;
 }
 
 .awards-description {
@@ -467,7 +467,7 @@ a:focus-visible {
 .site-footer {
     padding: 1.5rem;
     color: var(--text-muted);
-    font-size: 0.85rem;
+    font-size: 0.9375rem;
     border-top: 1px solid var(--line);
 }
 
