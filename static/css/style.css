@@ -173,6 +173,85 @@ h1, .brand {
     border: 3px solid var(--ink);
 }
 
+.profile-contact {
+    display: block;
+    position: relative;
+    z-index: 1;
+    border-radius: var(--radius);
+    text-decoration: none;
+}
+
+.profile-contact .avatar {
+    transform-origin: center;
+}
+
+.profile-contact-bubble {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    z-index: 2;
+    max-width: calc(100% - 1.5rem);
+    padding: 0.4rem 0.75rem;
+    border-radius: var(--radius);
+    background-color: var(--accent-dark);
+    color: var(--paper);
+    font-size: 0.85rem;
+    font-weight: 600;
+    opacity: 0;
+    transform: translateY(4px);
+    pointer-events: none;
+    transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.profile-contact-bubble::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    right: 1rem;
+    border: 6px solid transparent;
+    border-top-color: var(--accent-dark);
+    border-bottom: 0;
+}
+
+.profile-contact:hover .profile-contact-bubble,
+.profile-contact:focus-visible .profile-contact-bubble {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+@keyframes profile-wobble {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-2deg); }
+    50% { transform: rotate(2deg); }
+    75% { transform: rotate(-1deg); }
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .profile-contact:hover .avatar {
+        animation: profile-wobble 600ms ease-in-out;
+    }
+}
+
+@media (hover: none) {
+    .profile-contact-bubble {
+        opacity: 1;
+        transform: none;
+        pointer-events: auto;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .profile-contact .avatar {
+        animation: none;
+    }
+
+    .profile-contact-bubble {
+        transition: none;
+        transform: none;
+    }
+}
+
 .experience {
     padding: 6rem 0;
     border-top: 1px solid var(--line);
