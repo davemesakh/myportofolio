@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>David - Portfolio</title>
+    <title>{{ name }} - Portofolio</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -29,13 +29,12 @@
 
     <header class="site-header">
         <div class="container">
-            <a href="#profile" class="brand">Dave >///<</a>
+            <a href="{% url 'main:show_main' %}" class="brand">{{ name }} >///<</a>
 
             <nav>
-                <a href="#profile">Profile</a>
-                <a href="#experience">Experience</a>
-                <a href="#awards">Awards</a>
-            </nav>
+    <a href="{% url 'main:show_main' %}">Profile</a>
+    <a href="{% url 'main:show_experience' %}">Experience</a>
+</nav>
         </div>
     </header>
 
@@ -47,7 +46,7 @@
                     <p class="hero-kicker">
                         Information Systems &middot; Universitas Indonesia
                     </p>
-                    <h1>David Mesakh ♡</h1>
+                    <h1>{{ name }} ♡</h1>
                 </div>
 
                 <div class="hero-photo">
@@ -69,20 +68,19 @@
                 <div class="hero-details">
 
                     <p class="bio">
-                        Hello!!! I'm Dave, I'm a 2nd year Information Systems student at Universitas Indonesia.
-                        Interested and enthusiastic in turning data into insight, ideas into product. I also love music ^_^!
+                        {{ bio }}
                     </p>
 
                     <dl class="meta-list">
 
                         <div class="meta-row">
                             <dt>NPM</dt>
-                            <dd>2506604503</dd>
+                            <dd> {{ npm }} </dd>
                         </div>
 
                         <div class="meta-row">
                             <dt>Program</dt>
-                            <dd>S1 Sistem Informasi</dd>
+                            <dd> {{ study_program }} </dd>
                         </div>
 
                     </dl>
@@ -238,7 +236,7 @@
     <footer class="site-footer">
         <div class="container">
             <p>
-                &copy; 2026 David. Fakultas Ilmu Komputer, Universitas Indonesia.
+                &copy; 2026 {{ name }}. Fakultas Ilmu Komputer, Universitas Indonesia.
             </p>
             <div class="background-animation-control">
                 <input type="checkbox" id="background-animation-pause">
