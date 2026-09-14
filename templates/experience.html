@@ -40,40 +40,49 @@
     </header>
 
     <main>
-    <section class="experience-section" id="experience">
-        <div class="container">
-            <p class="section-kicker">My journey so far</p>
-            <h1>Experience</h1>
+        <section class="experience" id="experience" aria-labelledby="experience-heading">
+            <div class="container">
+                <header class="experience-intro">
+                    <p class="experience-label">EXPERIENCE</p>
+                    <h2 id="experience-heading">What I've Been Up To..?</h2>
+                </header>
 
-            <div class="experience-grid">
-                {% for experience in experience_list %}
-                    <article class="experience-card">
-                        <span class="experience-category">
-                            {{ experience.get_category_display }}
-                        </span>
-
-                        <h2>{{ experience.title }}</h2>
-
-                        <p class="experience-description">
-                            {{ experience.description }}
-                        </p>
-
-                        {% if experience.is_ongoing %}
-                            <p class="experience-status">Sedang berlangsung</p>
-                        {% else %}
-                            <p class="experience-status">Selesai</p>
+                <div class="experience-list">
+                    {% for experience in experience_list %}
+                    <article class="experience-item">
+                        {% if experience.logo_static_path %}
+                        <img class="experience-logo" src="{% static experience.logo_static_path %}"
+                             alt="{{ experience.logo_alt }}" width="88" height="88" loading="lazy">
                         {% endif %}
+                        <header class="experience-header">
+                            <div class="experience-identity">
+                                {% if experience.organization %}
+                                <h3 class="experience-organization">{{ experience.organization }}</h3>
+                                <p class="experience-role">{{ experience.title }}</p>
+                                {% else %}
+                                <h3 class="experience-organization">{{ experience.title }}</h3>
+                                {% endif %}
+                            </div>
+                            {% if experience.start_period or experience.end_period or experience.is_current %}
+                            <p class="experience-period">
+                                {% if experience.start_period %}<time datetime="{{ experience.start_period.iso }}">{{ experience.start_period.label }}</time>{% endif %}
+                                {% if experience.is_current %}{% if experience.start_period %} &ndash; {% endif %}Present{% elif experience.end_period %}{% if experience.start_period %} &ndash; {% endif %}<time datetime="{{ experience.end_period.iso }}">{{ experience.end_period.label }}</time>{% endif %}
+                            </p>
+                            {% endif %}
+                        </header>
+                        <div class="experience-contributions">
+                            {% for paragraph in experience.description_paragraphs %}
+                            <p>{{ paragraph }}</p>
+                            {% endfor %}
+                        </div>
                     </article>
-
-                {% empty %}
-                    <p class="empty-state">
-                        Belum ada pengalaman yang ditambahkan.
-                    </p>
-                {% endfor %}
+                    {% empty %}
+                    <p class="empty-state" lang="id">Belum ada pengalaman yang ditambahkan.</p>
+                    {% endfor %}
+                </div>
             </div>
-        </div>
-    </section>
-</main>
+        </section>
+    </main>
 
     <footer class="site-footer">
         <div class="container">

@@ -20,7 +20,7 @@ Hello!!! I'm Dave, I'm a 2nd year Information Systems student at Universitas Ind
 def show_experience(request):
     context = {
         "name": "David Mesakh",
-        "experience_list": Experience.objects.all(),
+        "experience_list": Experience.objects.all().order_by("display_order", "id"),
     }
     return render(request, "experience.html", context)
 
