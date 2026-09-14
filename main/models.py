@@ -58,3 +58,23 @@ class Project(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class Award(models.Model):
+    id = models.AutoField(primary_key=True)
+    title = models.CharField(max_length=255)
+    achievement = models.CharField(max_length=255)
+    year = models.PositiveSmallIntegerField()
+    description = models.TextField()
+    photo_static_path = models.CharField(max_length=255)
+    photo_alt = models.CharField(max_length=255)
+    photo_width = models.PositiveIntegerField()
+    photo_height = models.PositiveIntegerField()
+    display_order = models.PositiveIntegerField(default=0)
+    source_key = models.SlugField(unique=True, null=True, blank=True, default=None)
+
+    class Meta:
+        ordering = ["display_order", "id"]
+
+    def __str__(self):
+        return self.title
