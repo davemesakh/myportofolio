@@ -591,57 +591,6 @@ h1, .brand {
     object-position: center 75%;
 }
 
-.projects-section {
-    padding: clamp(3rem, 6vw, 5rem) 0;
-}
-
-.projects-section h1 {
-    font-size: clamp(2rem, 5vw, 3rem);
-    line-height: 1.2;
-    margin-bottom: 2rem;
-}
-
-.projects-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
-    gap: 1.5rem;
-}
-
-.project-card,
-.projects-empty {
-    min-width: 0;
-    padding: clamp(1rem, 3vw, 1.5rem);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    overflow-wrap: anywhere;
-}
-
-.project-card h2 {
-    font-family: "Space Grotesk", -apple-system, sans-serif;
-    font-size: 1.5rem;
-    line-height: 1.35;
-}
-
-.project-card p,
-.project-card .social-link {
-    margin-top: 1rem;
-}
-
-.project-description {
-    white-space: pre-line;
-}
-
-.project-description,
-.project-date,
-.projects-empty {
-    color: var(--text-muted);
-}
-
-.projects-empty {
-    grid-column: 1 / -1;
-    text-align: center;
-}
-
 .site-header nav a:hover {
     color: var(--ink);
 }

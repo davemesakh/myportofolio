@@ -10,7 +10,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from main.models import Experience
+from main.models import Award, Experience
 
 
 class MainTest(TestCase):
@@ -28,7 +28,7 @@ class MainTest(TestCase):
         self.assertTemplateUsed(response, "index.html")
         self.assertNotContains(response, self.experience.title)
         self.assertNotContains(response, '<section class="experience"')
-        self.assertContains(response, '<section class="awards"')
+        self.assertNotContains(response, '<section class="awards"')
         self.assertContains(
             response,
             f'href="{reverse("main:show_experience")}"'
@@ -207,3 +207,70 @@ class PortfolioExperienceTest(TestCase):
         response = self.client.get(reverse("main:show_experience"))
         self.assertNotContains(response, "Present")
         self.assertNotContains(response, "None")
+
+
+class AwardsPageTest(TestCase):
+    def make_award(self, title, order):
+        return Award.objects.create(
+            title=title, achievement="First place", year=2025,
+            description="Description for " + title,
+            photo_static_path="img/custom-award.jpeg", photo_alt="Custom award photo",
+            photo_width=800, photo_height=600, display_order=order,
+        )
+
+    def test_named_url_and_empty_template(self):
+        from django.urls import resolve
+        from main.views import show_awards
+        self.assertEqual(reverse("main:show_awards"), "/awards/")
+        self.assertIs(resolve("/awards/").func, show_awards)
+        response = self.client.get(reverse("main:show_awards"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "awards.html")
+        self.assertContains(response, "Belum ada penghargaan yang ditambahkan.")
+
+    def test_data_order_photos_and_alternating_layout(self):
+        import re
+        from django.templatetags.static import static
+        last = self.make_award("Last award", 2)
+        first = self.make_award("First award", 1)
+        second = self.make_award("Second award", 1)
+        response = self.client.get(reverse("main:show_awards"))
+        self.assertEqual(list(response.context["award_list"]), [first, second, last])
+        content = response.content.decode()
+        self.assertLess(content.index(first.title), content.index(second.title))
+        self.assertLess(content.index(second.title), content.index(last.title))
+        self.assertEqual(re.findall(r'<article class="([^"]+)"', content), [
+            "awards-item", "awards-item awards-item-reversed", "awards-item",
+        ])
+        for award in (first, second, last):
+            self.assertContains(response, award.description)
+            self.assertContains(response, award.achievement)
+            self.assertContains(response, f'<time datetime="{award.year}">{award.year}</time>', html=True)
+            self.assertContains(response, f'src="{static(award.photo_static_path)}"')
+            self.assertContains(response, f'alt="{award.photo_alt}"')
+            self.assertContains(response, 'width="800" height="600"')
+        self.assertNotContains(response, "Belum ada penghargaan yang ditambahkan.")
+
+    def test_autoescaping(self):
+        self.make_award('<script>alert("x")</script>', 1)
+        response = self.client.get(reverse("main:show_awards"))
+        self.assertNotContains(response, "<script>")
+        self.assertContains(response, "&lt;script&gt;")
+
+    def test_navigation_on_all_pages(self):
+        import re
+        for route in ("show_main", "show_experience", "show_awards"):
+            response = self.client.get(reverse("main:" + route))
+            self.assertEqual(response.status_code, 200)
+            nav = re.search(r'<nav>(.*?)</nav>', response.content.decode(), re.S).group(1)
+            self.assertEqual(re.findall(r'<a href="([^"]+)">([^<]+)</a>', nav), [
+                (reverse("main:show_main"), "Profile"),
+                (reverse("main:show_experience"), "Experience"),
+                (reverse("main:show_awards"), "Awards"),
+            ])
+
+    def test_portfolio_admin_registration(self):
+        from django.contrib import admin
+        from main.admin import AwardAdmin, ExperienceAdmin
+        self.assertIsInstance(admin.site._registry[Award], AwardAdmin)
+        self.assertIsInstance(admin.site._registry[Experience], ExperienceAdmin)
