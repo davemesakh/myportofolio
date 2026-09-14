@@ -1,6 +1,6 @@
 from django.shortcuts import render
 
-from main.models import Experience, Project
+from main.models import Award, Experience, Project
 
 
 def show_main(request):
@@ -31,3 +31,11 @@ def show_projects(request):
         "project_list": Project.objects.all().order_by("-created_at", "-id"),
     }
     return render(request, "projects.html", context)
+
+
+def show_awards(request):
+    context = {
+        "name": "David Mesakh",
+        "award_list": Award.objects.all(),
+    }
+    return render(request, "awards.html", context)
