@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Experience - {{ name }}</title>
+    <title>Projects - {{ name }}</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -40,40 +40,31 @@
     </header>
 
     <main>
-    <section class="experience-section" id="experience">
-        <div class="container">
-            <p class="section-kicker">My journey so far</p>
-            <h1>Experience</h1>
+        <section class="projects-section" id="projects" aria-labelledby="projects-heading">
+            <div class="container">
+                <p class="experience-label">My work so far</p>
+                <h1 id="projects-heading">Projects</h1>
 
-            <div class="experience-grid">
-                {% for experience in experience_list %}
-                    <article class="experience-card">
-                        <span class="experience-category">
-                            {{ experience.get_category_display }}
-                        </span>
-
-                        <h2>{{ experience.title }}</h2>
-
-                        <p class="experience-description">
-                            {{ experience.description }}
-                        </p>
-
-                        {% if experience.is_ongoing %}
-                            <p class="experience-status">Sedang berlangsung</p>
-                        {% else %}
-                            <p class="experience-status">Selesai</p>
-                        {% endif %}
-                    </article>
-
-                {% empty %}
-                    <p class="empty-state">
-                        Belum ada pengalaman yang ditambahkan.
-                    </p>
-                {% endfor %}
+                <div class="projects-grid">
+                    {% for project in project_list %}
+                        <article class="project-card">
+                            <h2>{{ project.title }}</h2>
+                            <p class="project-description">{{ project.description }}</p>
+                            <p class="project-technologies"><strong>Technologies:</strong> {{ project.technologies }}</p>
+                            <p class="project-date">
+                                Created <time datetime="{{ project.created_at|date:'Y-m-d' }}">{{ project.created_at|date:"j F Y" }}</time>
+                            </p>
+                            {% if project.project_url %}
+                                <a class="social-link" href="{{ project.project_url }}" target="_blank" rel="noopener noreferrer">View project</a>
+                            {% endif %}
+                        </article>
+                    {% empty %}
+                        <p class="projects-empty" lang="id">Belum ada proyek yang ditambahkan.</p>
+                    {% endfor %}
+                </div>
             </div>
-        </div>
-    </section>
-</main>
+        </section>
+    </main>
 
     <footer class="site-footer">
         <div class="container">
