@@ -115,6 +115,31 @@
 
             </div>
         </section>
+        <section class="education" aria-labelledby="education-heading">
+            <div class="container">
+                <h2 id="education-heading">...My Education Journey O_o ???</h2>
+                <ol class="education-timeline">
+                    {% for education in education_list %}
+                    <li class="education-item">
+                        <div class="education-logo-slot">
+                        {% if education.logo %}
+                        <img class="education-logo" src="{% static education.logo %}"
+                             alt="{{ education.logo_alt }}" width="104" height="128" loading="lazy">
+                        {% endif %}
+                        </div>
+                        <div class="education-content">
+                            <p class="education-label">{{ education.label }}</p>
+                            <h3>{{ education.institution }}</h3>
+                            <p class="education-description">{{ education.description }}</p>
+                        </div>
+                        {% if education.status %}
+                        <p class="education-status">{{ education.status }}</p>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ol>
+            </div>
+        </section>
     </main>
 
     <footer class="site-footer">

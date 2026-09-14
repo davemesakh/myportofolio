@@ -591,6 +591,115 @@ h1, .brand {
     object-position: center 75%;
 }
 
+.education {
+    padding: 6rem 0;
+    border-top: 1px solid var(--line);
+}
+
+.education h2,
+.education h3 {
+    font-family: "Space Grotesk", -apple-system, sans-serif;
+    font-weight: 700;
+}
+
+.education h2 {
+    font-size: clamp(2rem, 5vw, 3rem);
+    line-height: 1.2;
+    margin-bottom: clamp(6.25rem, 8vw, 7.5rem);
+}
+
+.education-timeline { list-style: none; }
+
+.education-item {
+    --education-axis: 64px;
+    position: relative;
+    display: grid;
+    grid-template-columns: 24px 112px minmax(0, 1fr) auto;
+    column-gap: 32px;
+    align-items: start;
+    min-height: 230px;
+    padding-bottom: 64px;
+}
+
+.education-item:last-child { min-height: 0; padding-bottom: 0; }
+
+.education-item::before {
+    content: "";
+    position: absolute;
+    left: 12px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--line);
+}
+
+.education-item:last-child::before { bottom: auto; height: calc(var(--education-axis) + 40px); }
+
+.education-item::after {
+    content: "";
+    position: absolute;
+    left: 7.5px;
+    top: calc(var(--education-axis) - 5px);
+    width: 10px;
+    height: 10px;
+    border: 2px solid var(--accent);
+    border-radius: 50%;
+    background: var(--paper);
+}
+
+/* Center both emblems; clip only the school image's surrounding white canvas. */
+.education-logo-slot {
+    grid-column: 2;
+    width: 112px;
+    height: 144px;
+    position: relative;
+    overflow: hidden;
+}
+.education-logo {
+    display: block;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 96px;
+    height: 128px;
+    object-fit: contain;
+}
+.education-logo[src$="logo-smas-budhaya.webp"] { width: 288px; height: 162px; max-width: none; }
+.education-content { grid-column: 3; min-width: 0; overflow-wrap: anywhere; }
+.education-label {
+    color: var(--accent);
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    margin-bottom: 12px;
+}
+.education h3 { font-size: clamp(2.25rem, 3.3vw, 3rem); line-height: 1.15; }
+.education-description { margin-top: 20px; font-size: 20px; color: var(--text-muted); }
+.education-status { grid-column: 4; margin-top: 48px; color: var(--text-muted); white-space: nowrap; }
+
+@media (max-width: 700px) {
+    .education { padding: 3rem 0 4rem; }
+    .education h2 { margin-bottom: 3.5rem; }
+    .education-item {
+        --education-axis: 46px;
+        grid-template-columns: 16px 64px minmax(0, 1fr);
+        column-gap: 12px;
+        row-gap: 12px;
+        min-height: 0;
+        padding-bottom: 56px;
+    }
+    .education-item::before { left: 8px; }
+    .education-item::after { left: 3.5px; }
+    .education-logo-slot { width: 64px; height: 100px; }
+    .education-logo { width: 60px; height: 92px; }
+    .education-logo[src$="logo-smas-budhaya.webp"] { width: 192px; height: 108px; }
+    .education-label { font-size: 12px; margin-bottom: 8px; }
+    .education h3 { font-size: clamp(1.35rem, 4.5vw, 2rem); }
+    .education-description { font-size: 16px; margin-top: 12px; }
+    .education-status { grid-column: 3; margin-top: 0; }
+}
+
 .site-header nav a:hover {
     color: var(--ink);
 }
