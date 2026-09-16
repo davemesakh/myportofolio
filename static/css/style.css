@@ -503,6 +503,159 @@ h1, .brand {
     margin-bottom: 3.5rem;
 }
 
+.award-action,
+.award-cancel {
+    display: inline-block;
+    margin-top: 1.25rem;
+    padding: 0.55rem 1.1rem;
+    border: 1px solid var(--ink);
+    border-radius: var(--radius);
+    font: inherit;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.award-action {
+    color: var(--button-text);
+    background-color: var(--ink);
+}
+
+.award-action:hover { background-color: var(--accent); }
+
+.award-delete-confirmation {
+    position: relative;
+    width: fit-content;
+    margin-top: 1.25rem;
+}
+
+.award-delete-confirmation summary {
+    padding: 0.55rem 1.1rem;
+    border: 1px solid #9B1C1C;
+    border-radius: var(--radius);
+    color: #9B1C1C;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+}
+
+.award-delete-confirmation summary::-webkit-details-marker { display: none; }
+
+.award-delete-confirmation summary:hover { background-color: #FDECEC; }
+
+.award-delete-popover {
+    position: absolute;
+    z-index: 2;
+    top: calc(100% + 0.5rem);
+    left: 0;
+    width: min(20rem, calc(100vw - 3rem));
+    padding: 1rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background-color: #FFFFFF;
+    box-shadow: 0 8px 20px rgba(19, 60, 85, 0.18);
+}
+
+.award-delete-popover p { color: var(--text-muted); }
+
+.award-delete-popover form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.award-delete-confirm {
+    padding: 0.55rem 1.1rem;
+    border: 1px solid #9B1C1C;
+    border-radius: var(--radius);
+    color: var(--button-text);
+    background-color: #9B1C1C;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.award-delete-confirm:hover { background-color: #741515; }
+
+.award-cancel {
+    margin-top: 0;
+    color: var(--ink);
+    background-color: transparent;
+}
+
+.award-cancel:hover { background-color: var(--accent-soft); }
+
+.award-form-page {
+    padding: 6rem 0;
+    border-top: 1px solid var(--line);
+}
+
+.award-form-container { max-width: 720px; }
+
+.award-form-intro { margin-bottom: 2rem; }
+
+.award-form-intro h1 {
+    font-family: "Space Grotesk", -apple-system, sans-serif;
+    font-size: clamp(2rem, 5vw, 3rem);
+    line-height: 1.2;
+}
+
+.award-form-intro p:last-child {
+    margin-top: 0.75rem;
+    color: var(--text-muted);
+}
+
+.award-form {
+    display: grid;
+    gap: 1.25rem;
+    padding: clamp(1.25rem, 4vw, 2rem);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background-color: var(--paper);
+}
+
+.award-form-field { display: grid; gap: 0.45rem; }
+
+.award-form-field label { font-weight: 600; }
+
+.award-form-control {
+    width: 100%;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background-color: #FFFFFF;
+    color: var(--ink);
+    font: inherit;
+}
+
+.award-form-control:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-color: var(--accent);
+}
+
+textarea.award-form-control { resize: vertical; }
+
+.field-help,
+.field-error,
+.form-errors { color: var(--text-muted); font-size: 0.9375rem; }
+
+.field-error,
+.form-errors { color: #9B1C1C; }
+
+.form-errors ul { padding-left: 1.25rem; }
+
+.award-form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.award-form-actions .award-action { margin-top: 0; }
+
 .awards-label {
     margin-bottom: 1rem;
     color: var(--accent);
@@ -727,6 +880,14 @@ a:focus-visible {
 
     .awards-intro {
         margin-bottom: 2rem;
+    }
+
+    .award-form-page { padding: 3rem 0 4rem; }
+
+    .award-delete-popover {
+        position: static;
+        width: 100%;
+        margin-top: 0.75rem;
     }
 
     .awards-item {

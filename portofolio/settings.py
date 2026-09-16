@@ -37,6 +37,10 @@ ALLOWED_HOSTS = [
     "david-mesakh-myportofolio.pws.cs.ui.ac.id",
 ]
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://david-mesakh-myportofolio.pws.cs.ui.ac.id",
+]
+
 PRODUCTION = os.getenv('PRODUCTION', 'False').lower() == 'true'
 
 # Application definition

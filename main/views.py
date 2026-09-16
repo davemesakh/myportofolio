@@ -1,6 +1,8 @@
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib.staticfiles import finders
+from django.views.decorators.http import require_POST
 
+from main.forms import AwardForm
 from main.models import Award, Experience
 
 
@@ -54,3 +56,22 @@ def show_awards(request):
         "award_list": Award.objects.all(),
     }
     return render(request, "awards.html", context)
+
+
+def create_award(request):
+    if request.method == "POST":
+        form = AwardForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect("main:show_awards")
+    else:
+        form = AwardForm()
+
+    return render(request, "add_award.html", {"name": "David Mesakh", "form": form})
+
+
+@require_POST
+def delete_award(request, award_id):
+    award = get_object_or_404(Award, pk=award_id)
+    award.delete()
+    return redirect("main:show_awards")

@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+
+{% block title %}Add Award - {{ name }}{% endblock title %}
+
+{% block content %}
+<section class="award-form-page" aria-labelledby="add-award-heading">
+    <div class="container award-form-container">
+        <header class="award-form-intro">
+            <p class="awards-label">AWARDS</p>
+            <h1 id="add-award-heading">Add a Proud Moment</h1>
+            <p>Share a new achievement with your portfolio.</p>
+        </header>
+
+        <form method="post" action="{% url 'main:create_award' %}" class="award-form" novalidate>
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="form-errors" role="alert">{{ form.non_field_errors }}</div>
+            {% endif %}
+
+            {% for field in form %}
+            <div class="award-form-field">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}<p class="field-help">{{ field.help_text }}</p>{% endif %}
+                {% for error in field.errors %}<p class="field-error" role="alert">{{ error }}</p>{% endfor %}
+            </div>
+            {% endfor %}
+
+            <div class="award-form-actions">
+                <button class="award-action" type="submit">Save Award</button>
+                <a class="award-cancel" href="{% url 'main:show_awards' %}">Cancel</a>
+            </div>
+        </form>
+    </div>
+</section>
+{% endblock content %}

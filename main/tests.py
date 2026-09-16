@@ -274,3 +274,80 @@ class AwardsPageTest(TestCase):
         from main.admin import AwardAdmin, ExperienceAdmin
         self.assertIsInstance(admin.site._registry[Award], AwardAdmin)
         self.assertIsInstance(admin.site._registry[Experience], ExperienceAdmin)
+
+
+class AwardFormTest(TestCase):
+    valid_data = {
+        "title": "National Science Competition",
+        "achievement": "First Place",
+        "year": 2026,
+        "description": "Won first place in the national science competition.",
+        "photo_static_path": "img/national-science-competition.jpeg",
+        "photo_alt": "Receiving the national science competition award.",
+        "photo_width": 800,
+        "photo_height": 600,
+        "display_order": 0,
+    }
+
+    def test_get_create_award_page(self):
+        response = self.client.get(reverse("main:create_award"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "add_award.html")
+        self.assertContains(response, "csrfmiddlewaretoken")
+        self.assertContains(response, 'action="%s"' % reverse("main:create_award"), html=False)
+
+    def test_valid_post_creates_award_and_redirects(self):
+        response = self.client.post(reverse("main:create_award"), self.valid_data)
+
+        self.assertRedirects(response, reverse("main:show_awards"))
+        award = Award.objects.get(title=self.valid_data["title"])
+        self.assertEqual(award.achievement, self.valid_data["achievement"])
+        self.assertEqual(award.photo_static_path, self.valid_data["photo_static_path"])
+
+    def test_invalid_post_does_not_create_award(self):
+        invalid_data = self.valid_data | {"title": "", "year": "not-a-year"}
+
+        response = self.client.post(reverse("main:create_award"), invalid_data)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "add_award.html")
+        self.assertFalse(Award.objects.exists())
+        self.assertContains(response, "This field is required.")
+
+
+class AwardDeleteTest(TestCase):
+    def make_award(self, title):
+        return Award.objects.create(
+            title=title,
+            achievement="First place",
+            year=2026,
+            description="Description for " + title,
+            photo_static_path="img/custom-award.jpeg",
+            photo_alt="Custom award photo",
+            photo_width=800,
+            photo_height=600,
+        )
+
+    def test_post_deletes_requested_award_and_redirects(self):
+        target = self.make_award("Delete me")
+        other = self.make_award("Keep me")
+
+        response = self.client.post(reverse("main:delete_award", args=[target.id]))
+
+        self.assertRedirects(response, reverse("main:show_awards"))
+        self.assertFalse(Award.objects.filter(pk=target.id).exists())
+        self.assertTrue(Award.objects.filter(pk=other.id).exists())
+
+    def test_get_does_not_delete_award(self):
+        target = self.make_award("Do not delete me")
+
+        response = self.client.get(reverse("main:delete_award", args=[target.id]))
+
+        self.assertEqual(response.status_code, 405)
+        self.assertTrue(Award.objects.filter(pk=target.id).exists())
+
+    def test_missing_award_returns_404_on_post(self):
+        response = self.client.post(reverse("main:delete_award", args=[99999]))
+
+        self.assertEqual(response.status_code, 404)
