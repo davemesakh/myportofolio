@@ -1,3 +1,5 @@
+from django.core import serializers
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib.staticfiles import finders
 from django.views.decorators.http import require_POST
@@ -75,3 +77,13 @@ def delete_award(request, award_id):
     award = get_object_or_404(Award, pk=award_id)
     award.delete()
     return redirect("main:show_awards")
+
+
+def show_json(request):
+    data = Award.objects.all()
+    return HttpResponse(serializers.serialize("json", data), content_type="application/json")
+
+
+def show_json_by_id(request, id):
+    data = Award.objects.filter(pk=id)
+    return HttpResponse(serializers.serialize("json", data), content_type="application/json")

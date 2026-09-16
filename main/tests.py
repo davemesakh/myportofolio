@@ -1,4 +1,5 @@
 from io import StringIO
+import json
 from unittest.mock import patch
 from django.core.exceptions import ValidationError
 from django.core.management import call_command, CommandError
@@ -351,3 +352,45 @@ class AwardDeleteTest(TestCase):
         response = self.client.post(reverse("main:delete_award", args=[99999]))
 
         self.assertEqual(response.status_code, 404)
+
+
+class AwardJsonTest(TestCase):
+    def make_award(self, title):
+        return Award.objects.create(
+            title=title,
+            achievement="First place",
+            year=2026,
+            description="Description for " + title,
+            photo_static_path="img/custom-award.jpeg",
+            photo_alt="Custom award photo",
+            photo_width=800,
+            photo_height=600,
+        )
+
+    def test_show_json_returns_all_awards_as_json(self):
+        first = self.make_award("First JSON award")
+        second = self.make_award("Second JSON award")
+
+        response = self.client.get(reverse("main:show_json"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/json")
+        payload = json.loads(response.content)
+        self.assertEqual({item["pk"] for item in payload}, {first.id, second.id})
+        self.assertEqual(
+            {item["fields"]["title"] for item in payload},
+            {first.title, second.title},
+        )
+
+    def test_show_json_by_id_returns_only_requested_award(self):
+        target = self.make_award("Requested JSON award")
+        self.make_award("Other JSON award")
+
+        response = self.client.get(reverse("main:show_json_by_id", args=[target.id]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/json")
+        payload = json.loads(response.content)
+        self.assertEqual(len(payload), 1)
+        self.assertEqual(payload[0]["pk"], target.id)
+        self.assertEqual(payload[0]["fields"]["title"], target.title)
