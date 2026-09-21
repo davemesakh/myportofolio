@@ -9,7 +9,7 @@
 Website portofolio untuk mata kuliah Pemrograman Berbasis Platform (PBP), Fasilkom Universitas Indonesia, menggunakan Django 5.2.17, HTML, CSS, dan Django Template Language (DTL).
 
 - **Profile (`/`):** informasi profil dan Education Journey. Data pendidikan berasal dari context `show_main`, bukan model database.
-- **Experience (`/experience/`):** data model `Experience`, dengan logo, paragraf kontribusi, periode bulan/tahun, dan urutan tampilan.
+- **Experience (`/experience/`):** data model `Experience`, dengan logo, paragraf kontribusi, periode bulan/tahun, urutan tampilan, form create/update, penghapusan, serta penyajian dan pembacaan ulang data JSON.
 - **Awards (`/awards/`):** bagian baru untuk memenuhi Tugas Individu 2 melalui alur Model-View-Template (MVT). Model `Award` menyimpan judul, pencapaian, tahun, deskripsi, referensi foto, alt text, dimensi, dan urutan.
 - **Admin (`/admin/`):** pengelolaan Experience dan Award dengan pencarian, filter, dan pengurutan.
 
@@ -82,9 +82,9 @@ Perintah berikut menggunakan PowerShell dari direktori proyek. Environment penge
    python manage.py test
    ```
 
-   Tests memakai database test tersendiri. Hasil terakhir sebelum pembaruan dokumentasi: 23 tests lulus. Warning direktori `staticfiles` belum tersedia muncul saat tests; konfigurasi tidak diubah untuk menyembunyikannya. Tests tidak diulang untuk perubahan dokumentasi ini.
+   Tests memakai database test tersendiri. Hasil terakhir sebelum pembaruan dokumentasi Tugas 3: 46 tests lulus. Warning direktori `staticfiles` belum tersedia muncul saat tests; konfigurasi tidak diubah untuk menyembunyikannya. Tests tidak diulang untuk perubahan dokumentasi ini.
 
-`db.sqlite3`, `.env`, `env/`, dan `__pycache__/` diabaikan Git. Database lokal tidak ikut di-push; lingkungan lain memerlukan migrasi, pengisian data, dan akun admin tersendiri. Jangan mengedit migrasi lama yang sudah diterapkan. Perintah khusus PWS belum diverifikasi dalam rangkaian ini dan tidak dicantumkan.
+`db.sqlite3`, `.env`, `env/`, dan `__pycache__/` diabaikan Git. Database lokal tidak ikut di-push; lingkungan lain memerlukan migrasi, pengisian data, dan akun admin tersendiri. Jangan mengedit migrasi lama yang sudah diterapkan. Deployment Tugas 3 pada PWS telah diperiksa secara manual setelah kode terbaru dimuat ulang.
 
 ## Progres Mingguan
 
@@ -93,6 +93,7 @@ Perintah berikut menggunakan PowerShell dari direktori proyek. Environment penge
 | Hingga 2 September 2026 | Setup Django, Profile, Git/GitHub dan PWS, serta latihan branch dan pull request tutorial. |
 | 6-7 September 2026 | Experience dan Awards statis, tema Summer Splash, logo, crop foto, serta interaksi profil. |
 | Tugas Individu 2 | Awards berbasis database, pemindahan Experience, command impor berulang, admin, tests, penghapusan Projects, serta Education Journey pada Profile. |
+| Tugas Individu 3 | Experience mendukung create, update, delete, validasi form, data delivery JSON, serta tampilan data setelah proses deserialization JSON. |
 
 ## Pertanyaan Reflektif
 
@@ -126,15 +127,29 @@ Jawaban Tugas 1 berikut dipertahankan sebagai refleksi tahap sebelumnya, ketika 
 
    `makemigrations` membuat berkas migrasi dari perbedaan model terhadap riwayat migrasi; perintah ini belum menerapkan perubahan skema ke database. Saat model `Award` ditambahkan, `python manage.py makemigrations main` menghasilkan `main/migrations/0004_award.py` dengan operasi `CreateModel Award`. Setelah isinya diperiksa, `python manage.py migrate` menerapkan operasi tersebut untuk membuat tabel Award pada database yang dipilih. Pengisian dua penghargaan dilakukan terpisah melalui `import_portfolio_awards`, bukan melalui migrasi skema itu.
 
+### Tugas 3
+
+1. **Jelaskan mengapa kita menggunakan `ModelForm` pada Django alih-alih membuat form HTML secara manual. Selain itu, jelaskan pula mengapa kita diwajibkan menambahkan `{% csrf_token %}` pada form tersebut!**
+
+   `ModelForm` membentuk field dan aturan validasi dari model Django, sehingga form lebih konsisten dengan struktur database dan tidak perlu mengulang seluruh definisi input secara manual. Pada proyek ini, `ExperienceForm` dapat dipakai untuk create dan update, sementara validasi tanggal tetap berada di satu tempat. `{% csrf_token %}` menambahkan token yang diperiksa Django ketika form POST dikirim. Pemeriksaan ini mencegah situs lain mengirim permintaan perubahan data dengan memanfaatkan sesi pengguna tanpa izin.
+
+2. **Pada Tutorial 03, kita membahas format data JSON dan XML. Mengapa JSON lebih disukai dalam pengembangan aplikasi web modern dibandingkan XML?**
+
+   JSON lebih ringkas, mudah dibaca, dan langsung cocok dengan struktur object serta array yang umum dipakai JavaScript. Ukuran data dan sintaksnya biasanya lebih sederhana daripada XML karena tidak memerlukan tag pembuka dan penutup untuk setiap nilai. Dukungan parsing JSON juga tersedia secara bawaan di browser dan banyak bahasa pemrograman, sehingga praktis untuk pertukaran data pada aplikasi web dan API modern.
+
+3. **Jelaskan alur yang terjadi saat kamu menggunakan fungsi view untuk mengembalikan data portofoliomu dalam bentuk JSON. Mengapa kita perlu melakukan proses serialization pada model Django sebelum datanya dikembalikan?**
+
+   Pada proyek ini, view `get_experiences_json` mengambil queryset Experience sesuai urutan tampilan, lalu `serializers.serialize("json", ...)` mengubah setiap object menjadi teks JSON yang memuat primary key UUID dan field model. Data tersebut dikirim melalui `HttpResponse` dengan content type `application/json`. View `show_experience` kemudian membaca respons itu, melakukan deserialization menjadi object Experience, dan mengirimkannya ke template. Serialization diperlukan karena queryset dan instance model adalah object Python yang tidak dapat langsung dikirim sebagai data HTTP atau dipahami sebagai JSON oleh client.
+
 ## Penggunaan AI
 
 - **ChatGPT:** membantu memahami ketentuan, menyusun tahapan/prompt, meninjau laporan, dan memberi masukan desain, sesuai keterangan pengguna.
-- **Codex:** membantu implementasi Django dan HTML/CSS, migrasi, command impor, tests, dokumentasi, serta commit yang diizinkan. Data dan aset berasal dari pengguna atau konten proyek; keputusan dan revisi tetap diarahkan pengguna.
+- **Codex:** membantu implementasi Django dan HTML/CSS, migrasi, command impor, tests, dokumentasi.
 
 Pekerjaan dilakukan bertahap dengan batas lingkup yang eksplisit: audit, model/migrasi, impor data, halaman, validasi, lalu commit. Diff dan staged diff diperiksa agar perubahan lain tidak ikut masuk. Screenshot digunakan sebagai referensi struktur dan ukuran; revisi mencakup layout Experience/Awards, timeline Education, whitespace logo SMA, dan penggunaan logo Fasilkom atas izin pengguna.
 
-**Pemeriksaan otomatis:** Codex menjalankan tests, Django system check, pemeriksaan migrasi dan diff, reverse/resolve, HTTP melalui Django test client, serta akses aset melalui staticfiles handler. Impor dijalankan ulang untuk memeriksa duplikasi; data dan ID Calculus dibandingkan sebelum/sesudah. Pada validasi terakhir fitur Education, 23 tests lulus. Ini bukan bukti kesamaan visual di browser.
-
-**Pemeriksaan visual pengguna:** pengguna memberikan screenshot, penyesuaian teks, dan umpan balik bahwa CSS tampil setelah Ctrl+F5. Codex membaca aset gambar dan aturan CSS, tetapi tidak melakukan pemeriksaan halaman melalui browser desktop/mobile. Tidak tersedia bukti pemeriksaan mobile atau kontrol pause secara menyeluruh; keduanya masih perlu diperiksa manual.
+Pada Tugas 3, ChatGPT dan Codex digunakan untuk merencanakan implementasi, mengaudit kode, membuat alur CRUD Experience, menerapkan data delivery serta deserialization JSON, menyusun strategi tests, dan memperbarui dokumentasi. Setiap perubahan ditinjau manual, diuji secara lokal, lalu diperiksa pada deployment PWS dan disesuaikan berdasarkan perilaku yang terlihat. Salah satu keterbatasannya adalah deployment PWS sempat tidak langsung menampilkan kode terbaru, sehingga versi yang aktif perlu dipastikan kembali melalui reload dan pemeriksaan manual.
 
 [Ringkasan penggunaan AI Tugas 2](docs/ai-usage-tugas-2.md) memuat prompt dan perubahan penting yang tersedia dalam percakapan Codex. Dokumen tersebut adalah ringkasan, bukan transkrip lengkap. URL percakapan tidak dicantumkan karena tidak tersedia.
+
+[Ringkasan penggunaan AI Tugas 3](docs/ai-usage-tugas-3.md) mencatat audit, implementasi CRUD, data delivery JSON, strategi pengujian, pembaruan dokumentasi, dan keterbatasan verifikasi yang ditemui.
