@@ -417,6 +417,85 @@ class ExperienceFormTest(TestCase):
         self.assertContains(response, "csrfmiddlewaretoken")
 
 
+class ExperienceJsonTest(TestCase):
+    def make_experience(self, title, display_order):
+        return Experience.objects.create(
+            title=title,
+            description=f"Description for {title}.",
+            category="internship",
+            organization="Example Organization",
+            start_year=2026,
+            start_month=1,
+            is_current=True,
+            display_order=display_order,
+        )
+
+    def test_all_experiences_json_contains_uuid_records_in_order(self):
+        later = self.make_experience("Later Experience", 2)
+        first = self.make_experience("First Experience", 1)
+
+        response = self.client.get(reverse("main:get_experiences_json"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/json")
+        payload = json.loads(response.content)
+        self.assertEqual(
+            [item["pk"] for item in payload],
+            [str(first.id), str(later.id)],
+        )
+        self.assertEqual(
+            [item["fields"]["title"] for item in payload],
+            [first.title, later.title],
+        )
+
+    def test_json_order_tie_uses_uuid(self):
+        first_id = uuid.UUID(int=1)
+        second_id = uuid.UUID(int=2)
+        Experience.objects.create(
+            id=second_id,
+            title="Second UUID",
+            description="Second.",
+            display_order=1,
+        )
+        Experience.objects.create(
+            id=first_id,
+            title="First UUID",
+            description="First.",
+            display_order=1,
+        )
+
+        response = self.client.get(reverse("main:get_experiences_json"))
+        payload = json.loads(response.content)
+
+        self.assertEqual(
+            [item["pk"] for item in payload],
+            [str(first_id), str(second_id)],
+        )
+
+    def test_experience_page_renders_after_json_deserialization(self):
+        experience = self.make_experience("Deserialized Experience", 1)
+
+        response = self.client.get(reverse("main:show_experience"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "experience.html")
+        self.assertContains(response, experience.title)
+        self.assertEqual(
+            [item.id for item in response.context["experience_list"]],
+            [experience.id],
+        )
+        self.assertContains(
+            response,
+            f'href="{reverse("main:update_experience", args=[experience.id])}"',
+            html=False,
+        )
+        self.assertContains(
+            response,
+            f'action="{reverse("main:delete_experience", args=[experience.id])}"',
+            html=False,
+        )
+
+
 class AwardsPageTest(TestCase):
     def make_award(self, title, order):
         return Award.objects.create(

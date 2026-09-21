@@ -45,11 +45,26 @@ Hello!!! I'm Dave, I'm a 2nd year Information Systems student at Universitas Ind
 
 
 def show_experience(request):
+    json_response = get_experiences_json(request)
+    serialized_experiences = json_response.content.decode("utf-8")
+    experience_list = [
+        deserialized.object
+        for deserialized in serializers.deserialize("json", serialized_experiences)
+    ]
+
     context = {
         "name": "David Mesakh",
-        "experience_list": Experience.objects.all().order_by("display_order", "id"),
+        "experience_list": experience_list,
     }
     return render(request, "experience.html", context)
+
+
+def get_experiences_json(request):
+    experiences = Experience.objects.all().order_by("display_order", "id")
+    return HttpResponse(
+        serializers.serialize("json", experiences),
+        content_type="application/json",
+    )
 
 
 def create_experience(request):
