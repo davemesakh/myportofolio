@@ -9,6 +9,7 @@
                 <header class="experience-intro">
                     <p class="experience-label">EXPERIENCE</p>
                     <h2 id="experience-heading">What I've Been Up To..?</h2>
+                    <a class="award-action" href="{% url 'main:create_experience' %}">Add Experience</a>
                 </header>
 
                 <div class="experience-list">
@@ -38,6 +39,14 @@
                             {% for paragraph in experience.description_paragraphs %}
                             <p>{{ paragraph }}</p>
                             {% endfor %}
+                            <div class="award-form-actions experience-item-actions">
+                                <a class="award-cancel" href="{% url 'main:update_experience' experience.id %}">Edit</a>
+                                <form method="post" action="{% url 'main:delete_experience' experience.id %}">
+                                    {% csrf_token %}
+                                    <button class="award-delete-confirm" type="submit"
+                                            aria-label="Delete {{ experience.title }}">Delete</button>
+                                </form>
+                            </div>
                         </div>
                     </article>
                     {% empty %}

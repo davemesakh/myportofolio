@@ -1,5 +1,6 @@
 from io import StringIO
 import json
+import uuid
 from unittest.mock import patch
 from django.core.exceptions import ValidationError
 from django.core.management import call_command, CommandError
@@ -11,6 +12,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from main.forms import ExperienceForm
 from main.models import Award, Experience
 
 
@@ -208,6 +210,211 @@ class PortfolioExperienceTest(TestCase):
         response = self.client.get(reverse("main:show_experience"))
         self.assertNotContains(response, "Present")
         self.assertNotContains(response, "None")
+
+
+class ExperienceFormTest(TestCase):
+    valid_data = {
+        "title": "Data Analyst Intern",
+        "description": "Built dashboards and analyzed operational data.",
+        "category": "internship",
+        "organization": "Example Organization",
+        "logo_static_path": "img/example-logo.png",
+        "logo_alt": "Example Organization logo",
+        "start_year": 2026,
+        "start_month": 1,
+        "end_year": 2026,
+        "end_month": 6,
+        "is_current": "False",
+        "display_order": 5,
+    }
+
+    def make_experience(self):
+        return Experience.objects.create(
+            title="Original Experience",
+            description="Original description.",
+            category="part-time",
+            organization="Original Organization",
+            start_year=2025,
+            start_month=8,
+            is_current=True,
+            display_order=2,
+            source_key="original-experience",
+        )
+
+    def test_form_exposes_only_selected_portfolio_fields(self):
+        self.assertEqual(
+            list(ExperienceForm().fields),
+            [
+                "title",
+                "description",
+                "category",
+                "organization",
+                "logo_static_path",
+                "logo_alt",
+                "start_year",
+                "start_month",
+                "end_year",
+                "end_month",
+                "is_current",
+                "display_order",
+            ],
+        )
+
+    def test_get_create_experience_page(self):
+        response = self.client.get(reverse("main:create_experience"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "experience_form.html")
+        self.assertContains(response, "csrfmiddlewaretoken")
+        self.assertContains(
+            response,
+            'action="%s"' % reverse("main:create_experience"),
+            html=False,
+        )
+
+    def test_valid_post_creates_experience_and_redirects(self):
+        response = self.client.post(reverse("main:create_experience"), self.valid_data)
+
+        self.assertRedirects(response, reverse("main:show_experience"))
+        experience = Experience.objects.get(title=self.valid_data["title"])
+        self.assertEqual(experience.organization, self.valid_data["organization"])
+        self.assertEqual(experience.start_month, self.valid_data["start_month"])
+        self.assertEqual(experience.end_month, self.valid_data["end_month"])
+        self.assertFalse(experience.is_current)
+        self.assertIsNone(experience.source_key)
+
+    def test_invalid_post_does_not_create_experience_and_shows_errors(self):
+        invalid_data = self.valid_data | {
+            "start_year": 2026,
+            "start_month": 8,
+            "end_year": 2026,
+            "end_month": 6,
+            "is_current": "True",
+        }
+
+        response = self.client.post(reverse("main:create_experience"), invalid_data)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "experience_form.html")
+        self.assertFalse(Experience.objects.exists())
+        self.assertContains(response, "A current experience cannot have an end date.")
+        self.assertContains(response, "The end date cannot be earlier than the start date.")
+
+    def test_month_requires_corresponding_year(self):
+        for year_field, month_field in (
+            ("start_year", "start_month"),
+            ("end_year", "end_month"),
+        ):
+            with self.subTest(month_field=month_field):
+                data = self.valid_data | {
+                    year_field: "",
+                    month_field: 4,
+                    "is_current": "False",
+                }
+                form = ExperienceForm(data=data)
+
+                self.assertFalse(form.is_valid())
+                self.assertIn(month_field, form.errors)
+
+    def test_update_get_prefills_existing_experience(self):
+        experience = self.make_experience()
+
+        response = self.client.get(
+            reverse("main:update_experience", args=[experience.id])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "experience_form.html")
+        self.assertContains(response, "Edit Experience")
+        self.assertContains(response, experience.title)
+        self.assertContains(response, experience.organization)
+        self.assertEqual(response.context["form"].instance, experience)
+
+    def test_valid_update_post_modifies_experience_and_redirects(self):
+        experience = self.make_experience()
+        update_data = self.valid_data | {"title": "Updated Experience"}
+
+        response = self.client.post(
+            reverse("main:update_experience", args=[experience.id]),
+            update_data,
+        )
+
+        self.assertRedirects(response, reverse("main:show_experience"))
+        experience.refresh_from_db()
+        self.assertEqual(experience.title, "Updated Experience")
+        self.assertEqual(experience.organization, update_data["organization"])
+        self.assertEqual(experience.source_key, "original-experience")
+
+    def test_invalid_update_post_preserves_persisted_data(self):
+        experience = self.make_experience()
+        invalid_data = self.valid_data | {
+            "title": "Invalid Update",
+            "start_year": 2026,
+            "start_month": 8,
+            "end_year": 2026,
+            "end_month": 6,
+        }
+
+        response = self.client.post(
+            reverse("main:update_experience", args=[experience.id]),
+            invalid_data,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "The end date cannot be earlier than the start date.")
+        experience.refresh_from_db()
+        self.assertEqual(experience.title, "Original Experience")
+        self.assertEqual(experience.organization, "Original Organization")
+
+    def test_delete_post_deletes_experience_and_redirects(self):
+        experience = self.make_experience()
+
+        response = self.client.post(
+            reverse("main:delete_experience", args=[experience.id])
+        )
+
+        self.assertRedirects(response, reverse("main:show_experience"))
+        self.assertFalse(Experience.objects.filter(pk=experience.id).exists())
+
+    def test_delete_get_is_not_allowed(self):
+        experience = self.make_experience()
+
+        response = self.client.get(
+            reverse("main:delete_experience", args=[experience.id])
+        )
+
+        self.assertEqual(response.status_code, 405)
+        self.assertTrue(Experience.objects.filter(pk=experience.id).exists())
+
+    def test_missing_experience_returns_404_for_update_and_delete(self):
+        missing_id = uuid.uuid4()
+
+        update_response = self.client.get(
+            reverse("main:update_experience", args=[missing_id])
+        )
+        delete_response = self.client.post(
+            reverse("main:delete_experience", args=[missing_id])
+        )
+
+        self.assertEqual(update_response.status_code, 404)
+        self.assertEqual(delete_response.status_code, 404)
+
+    def test_experience_page_has_edit_and_delete_controls(self):
+        experience = self.make_experience()
+
+        response = self.client.get(reverse("main:show_experience"))
+
+        self.assertContains(
+            response,
+            f'href="{reverse("main:update_experience", args=[experience.id])}"',
+            html=False,
+        )
+        self.assertContains(
+            response,
+            f'action="{reverse("main:delete_experience", args=[experience.id])}"',
+            html=False,
+        )
+        self.assertContains(response, "csrfmiddlewaretoken")
 
 
 class AwardsPageTest(TestCase):

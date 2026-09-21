@@ -4,7 +4,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib.staticfiles import finders
 from django.views.decorators.http import require_POST
 
-from main.forms import AwardForm
+from main.forms import AwardForm, ExperienceForm
 from main.models import Award, Experience
 
 
@@ -50,6 +50,50 @@ def show_experience(request):
         "experience_list": Experience.objects.all().order_by("display_order", "id"),
     }
     return render(request, "experience.html", context)
+
+
+def create_experience(request):
+    if request.method == "POST":
+        form = ExperienceForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect("main:show_experience")
+    else:
+        form = ExperienceForm()
+
+    context = {
+        "name": "David Mesakh",
+        "form": form,
+        "is_update": False,
+    }
+    return render(request, "experience_form.html", context)
+
+
+def update_experience(request, experience_id):
+    experience = get_object_or_404(Experience, pk=experience_id)
+
+    if request.method == "POST":
+        form = ExperienceForm(request.POST, instance=experience)
+        if form.is_valid():
+            form.save()
+            return redirect("main:show_experience")
+    else:
+        form = ExperienceForm(instance=experience)
+
+    context = {
+        "name": "David Mesakh",
+        "form": form,
+        "experience": experience,
+        "is_update": True,
+    }
+    return render(request, "experience_form.html", context)
+
+
+@require_POST
+def delete_experience(request, experience_id):
+    experience = get_object_or_404(Experience, pk=experience_id)
+    experience.delete()
+    return redirect("main:show_experience")
 
 
 def show_awards(request):

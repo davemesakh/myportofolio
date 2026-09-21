@@ -656,6 +656,8 @@ textarea.award-form-control { resize: vertical; }
 
 .award-form-actions .award-action { margin-top: 0; }
 
+.experience-item-actions { margin-top: 1.25rem; }
+
 .awards-label {
     margin-bottom: 1rem;
     color: var(--accent);

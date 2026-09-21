@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if is_update %}Edit{% else %}Add{% endif %} Experience - {{ name }}{% endblock title %}
+
+{% block content %}
+<section class="award-form-page" aria-labelledby="experience-form-heading">
+    <div class="container award-form-container">
+        <header class="award-form-intro">
+            <p class="experience-label">EXPERIENCE</p>
+            <h1 id="experience-form-heading">
+                {% if is_update %}Edit Experience{% else %}Add an Experience{% endif %}
+            </h1>
+            <p>
+                {% if is_update %}
+                Update {{ experience.title }} and its contributions.
+                {% else %}
+                Share a role and its contributions on your portfolio.
+                {% endif %}
+            </p>
+        </header>
+
+        <form method="post"
+              action="{% if is_update %}{% url 'main:update_experience' experience.id %}{% else %}{% url 'main:create_experience' %}{% endif %}"
+              class="award-form" novalidate>
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="form-errors" role="alert">{{ form.non_field_errors }}</div>
+            {% endif %}
+
+            {% for field in form %}
+            <div class="award-form-field">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}<p class="field-help">{{ field.help_text }}</p>{% endif %}
+                {% for error in field.errors %}<p class="field-error" role="alert">{{ error }}</p>{% endfor %}
+            </div>
+            {% endfor %}
+
+            <div class="award-form-actions">
+                <button class="award-action" type="submit">
+                    {% if is_update %}Update Experience{% else %}Save Experience{% endif %}
+                </button>
+                <a class="award-cancel" href="{% url 'main:show_experience' %}">Cancel</a>
+            </div>
+        </form>
+    </div>
+</section>
+{% endblock content %}
