@@ -14,6 +14,7 @@ from main.views import (
     show_json,
     show_json_by_id,
     show_main,
+    toggle_experience_star,
     update_experience,
 )
 
@@ -29,6 +30,7 @@ urlpatterns = [
     path("experience/json/", get_experiences_json, name="get_experiences_json"),
     path("experience/<uuid:experience_id>/edit/", update_experience, name="update_experience"),
     path("experience/<uuid:experience_id>/delete/", delete_experience, name="delete_experience"),
+    path("experience/<uuid:experience_id>/star/", toggle_experience_star, name="toggle_experience_star"),
     path("awards/", show_awards, name="show_awards"),
     path("awards/add/", create_award, name="create_award"),
     path("awards/<int:award_id>/delete/", delete_award, name="delete_award"),

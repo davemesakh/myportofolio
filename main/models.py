@@ -1,5 +1,6 @@
 import re
 import uuid
+from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 
@@ -57,6 +58,9 @@ class Experience(models.Model):
     is_current = models.BooleanField(null=True, blank=True, default=None)
     display_order = models.PositiveIntegerField(default=0)
     source_key = models.SlugField(unique=True, null=True, blank=True, default=None)
+    starred_by = models.ManyToManyField(
+        settings.AUTH_USER_MODEL, related_name="starred_experiences", blank=True
+    )
 
     @property
     def description_paragraphs(self):

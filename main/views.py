@@ -1,3 +1,4 @@
+from collections import Counter
 from functools import wraps
 from zoneinfo import ZoneInfo
 
@@ -15,6 +16,13 @@ from django.views.decorators.http import require_POST
 
 from main.forms import AwardForm, ExperienceForm
 from main.models import Award, Experience
+
+
+EXPERIENCE_PUBLIC_FIELDS = (
+    "title", "description", "category", "thumbnail", "started_at", "ended_at",
+    "organization", "logo_static_path", "logo_alt", "start_year", "start_month",
+    "end_year", "end_month", "is_current", "display_order", "source_key",
+)
 
 
 def portfolio_owner_required(view_func):
@@ -103,6 +111,19 @@ def show_experience(request):
         deserialized.object
         for deserialized in serializers.deserialize("json", serialized_experiences)
     ]
+    star_counts = Counter()
+    starred_experience_ids = set()
+    if experience_list:
+        star_rows = Experience.starred_by.through.objects.filter(
+            experience_id__in=[experience.id for experience in experience_list]
+        ).values_list("experience_id", "user_id")
+        for experience_id, user_id in star_rows:
+            star_counts[experience_id] += 1
+            if request.user.is_authenticated and user_id == request.user.pk:
+                starred_experience_ids.add(experience_id)
+    for experience in experience_list:
+        experience.star_count = star_counts[experience.id]
+        experience.is_starred_by_user = experience.id in starred_experience_ids
 
     context = {
         "name": "David Mesakh",
@@ -114,9 +135,24 @@ def show_experience(request):
 def get_experiences_json(request):
     experiences = Experience.objects.all().order_by("display_order", "id")
     return HttpResponse(
-        serializers.serialize("json", experiences),
+        serializers.serialize(
+            "json",
+            experiences,
+            fields=EXPERIENCE_PUBLIC_FIELDS,
+        ),
         content_type="application/json",
     )
+
+
+@login_required(login_url="main:login")
+@require_POST
+def toggle_experience_star(request, experience_id):
+    experience = get_object_or_404(Experience, pk=experience_id)
+    if experience.starred_by.filter(pk=request.user.pk).exists():
+        experience.starred_by.remove(request.user)
+    else:
+        experience.starred_by.add(request.user)
+    return redirect("main:show_experience")
 
 
 @login_required(login_url="main:login")

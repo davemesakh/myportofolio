@@ -41,6 +41,18 @@
                             {% for paragraph in experience.description_paragraphs %}
                             <p>{{ paragraph }}</p>
                             {% endfor %}
+                            <div class="experience-star">
+                                {% if user.is_authenticated %}
+                                <form method="post" action="{% url 'main:toggle_experience_star' experience.id %}">
+                                    {% csrf_token %}
+                                    <button class="award-cancel experience-star-button{% if experience.is_starred_by_user %} is-starred{% endif %}"
+                                            type="submit" aria-label="{% if experience.is_starred_by_user %}Unstar{% else %}Star{% endif %} {{ experience.title }}">
+                                        {% if experience.is_starred_by_user %}Unstar{% else %}Star{% endif %}
+                                    </button>
+                                </form>
+                                {% endif %}
+                                <span class="experience-star-count">★ {{ experience.star_count }} star{{ experience.star_count|pluralize }}</span>
+                            </div>
                             {% if user.is_superuser %}
                             <div class="award-form-actions experience-item-actions">
                                 <a class="award-cancel" href="{% url 'main:update_experience' experience.id %}">Edit</a>

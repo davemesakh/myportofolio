@@ -969,3 +969,134 @@ class PortfolioAuthorizationTest(TestCase):
                         self.assertContains(response, control)
                     else:
                         self.assertNotContains(response, control)
+
+
+class ExperienceStarTest(TestCase):
+    def setUp(self):
+        self.experience = Experience.objects.create(
+            title="Starred Experience", description="Experience with stars."
+        )
+        self.star_url = reverse("main:toggle_experience_star", args=[self.experience.pk])
+
+    def test_model_relationship_uses_users_and_reverse_name(self):
+        field = Experience._meta.get_field("starred_by")
+        self.assertTrue(field.blank)
+        self.assertEqual(field.remote_field.model, get_user_model())
+        self.assertEqual(field.remote_field.related_name, "starred_experiences")
+
+        user = get_user_model().objects.create_user(username="stargazer")
+        self.experience.starred_by.add(user)
+        self.assertEqual(list(user.starred_experiences.all()), [self.experience])
+
+    def test_anonymous_user_cannot_toggle_star(self):
+        response = self.client.post(self.star_url)
+
+        self.assertRedirects(
+            response,
+            f"{reverse('main:login')}?next={self.star_url}",
+            fetch_redirect_response=False,
+        )
+        self.assertEqual(self.experience.starred_by.count(), 0)
+
+    def test_missing_experience_returns_404_for_star(self):
+        user = get_user_model().objects.create_user(username="stargazer")
+        self.client.force_login(user)
+
+        missing_url = reverse("main:toggle_experience_star", args=[uuid.uuid4()])
+        self.assertEqual(self.client.post(missing_url).status_code, 404)
+
+    def test_authenticated_user_can_star_and_unstar_only_with_post(self):
+        user = get_user_model().objects.create_user(username="stargazer")
+        self.client.force_login(user)
+
+        self.assertEqual(self.client.get(self.star_url).status_code, 405)
+        self.assertEqual(self.experience.starred_by.count(), 0)
+        self.assertRedirects(self.client.post(self.star_url), reverse("main:show_experience"))
+        self.assertTrue(self.experience.starred_by.filter(pk=user.pk).exists())
+        self.assertRedirects(self.client.post(self.star_url), reverse("main:show_experience"))
+        self.assertFalse(self.experience.starred_by.filter(pk=user.pk).exists())
+
+    def test_superuser_and_multiple_users_can_star_same_experience(self):
+        owner = get_user_model().objects.create_superuser(
+            username="portfolio_owner", password="A-strong-test-password-2026"
+        )
+        visitor = get_user_model().objects.create_user(username="stargazer")
+        for user in (owner, visitor):
+            self.client.force_login(user)
+            self.assertRedirects(self.client.post(self.star_url), reverse("main:show_experience"))
+
+        self.assertEqual(self.experience.starred_by.count(), 2)
+        self.client.force_login(visitor)
+        response = self.client.get(reverse("main:show_experience"))
+        self.assertContains(response, "★ 2 stars")
+        self.assertEqual(response.context["experience_list"][0].star_count, 2)
+
+    def test_anonymous_page_shows_count_without_star_or_crud_forms(self):
+        user = get_user_model().objects.create_user(username="stargazer")
+        self.experience.starred_by.add(user)
+
+        response = self.client.get(reverse("main:show_experience"))
+
+        self.assertContains(response, self.experience.title)
+        self.assertContains(response, "★ 1 star")
+        self.assertNotContains(response, f'action="{self.star_url}"')
+        self.assertNotContains(response, 'name="csrfmiddlewaretoken"')
+        self.assertNotContains(response, "Add Experience")
+        self.assertNotContains(response, f'href="{reverse("main:update_experience", args=[self.experience.pk])}"')
+
+    def test_authenticated_page_shows_correct_star_state_and_keeps_crud_policy(self):
+        visitor = get_user_model().objects.create_user(username="stargazer")
+        other = get_user_model().objects.create_user(username="other_stargazer")
+        second_experience = Experience.objects.create(
+            title="Other Experience", description="No stars."
+        )
+        self.experience.starred_by.add(visitor, other)
+        self.client.force_login(visitor)
+
+        response = self.client.get(reverse("main:show_experience"))
+
+        by_id = {item.pk: item for item in response.context["experience_list"]}
+        self.assertEqual(by_id[self.experience.pk].star_count, 2)
+        self.assertTrue(by_id[self.experience.pk].is_starred_by_user)
+        self.assertEqual(by_id[second_experience.pk].star_count, 0)
+        self.assertFalse(by_id[second_experience.pk].is_starred_by_user)
+        self.assertContains(response, f'action="{self.star_url}"')
+        self.assertContains(response, "csrfmiddlewaretoken")
+        self.assertContains(response, f'aria-label="Unstar {self.experience.title}"')
+        self.assertContains(response, f'aria-label="Star {second_experience.title}"')
+        self.assertContains(response, "★ 2 stars")
+        self.assertContains(response, "★ 0 stars")
+        self.assertNotContains(response, "Add Experience")
+        self.assertNotContains(response, f'href="{reverse("main:update_experience", args=[self.experience.pk])}"')
+
+        owner = get_user_model().objects.create_superuser(
+            username="portfolio_owner", password="A-strong-test-password-2026"
+        )
+        self.client.force_login(owner)
+        owner_response = self.client.get(reverse("main:show_experience"))
+        self.assertContains(owner_response, f'action="{self.star_url}"')
+        self.assertContains(owner_response, "Add Experience")
+        self.assertContains(
+            owner_response,
+            f'href="{reverse("main:update_experience", args=[self.experience.pk])}"',
+        )
+
+    def test_public_json_keeps_experience_fields_without_user_data(self):
+        user = get_user_model().objects.create_user(
+            username="private_stargazer", password="A-strong-test-password-2026"
+        )
+        self.experience.starred_by.add(user)
+
+        response = self.client.get(reverse("main:get_experiences_json"))
+
+        self.assertEqual(response.status_code, 200)
+        record = json.loads(response.content)[0]
+        self.assertEqual(record["pk"], str(self.experience.pk))
+        self.assertEqual(record["fields"]["title"], self.experience.title)
+        self.assertEqual(set(record["fields"]), {
+            "title", "description", "category", "thumbnail", "started_at", "ended_at",
+            "organization", "logo_static_path", "logo_alt", "start_year", "start_month",
+            "end_year", "end_month", "is_current", "display_order", "source_key",
+        })
+        self.assertNotIn("private_stargazer", response.content.decode())
+        self.assertNotIn(user.password, response.content.decode())
