@@ -9,7 +9,9 @@
                 <header class="experience-intro">
                     <p class="experience-label">EXPERIENCE</p>
                     <h2 id="experience-heading">What I've Been Up To..?</h2>
+                    {% if user.is_superuser %}
                     <a class="award-action" href="{% url 'main:create_experience' %}">Add Experience</a>
+                    {% endif %}
                 </header>
 
                 <div class="experience-list">
@@ -39,6 +41,7 @@
                             {% for paragraph in experience.description_paragraphs %}
                             <p>{{ paragraph }}</p>
                             {% endfor %}
+                            {% if user.is_superuser %}
                             <div class="award-form-actions experience-item-actions">
                                 <a class="award-cancel" href="{% url 'main:update_experience' experience.id %}">Edit</a>
                                 <form method="post" action="{% url 'main:delete_experience' experience.id %}">
@@ -47,6 +50,7 @@
                                             aria-label="Delete {{ experience.title }}">Delete</button>
                                 </form>
                             </div>
+                            {% endif %}
                         </div>
                     </article>
                     {% empty %}

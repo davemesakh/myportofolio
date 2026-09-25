@@ -230,6 +230,12 @@ class ExperienceFormTest(TestCase):
         "display_order": 5,
     }
 
+    def setUp(self):
+        owner = get_user_model().objects.create_superuser(
+            username="experience_owner", password="A-strong-test-password-2026"
+        )
+        self.client.force_login(owner)
+
     def make_experience(self):
         return Experience.objects.create(
             title="Original Experience",
@@ -476,6 +482,10 @@ class ExperienceJsonTest(TestCase):
 
     def test_experience_page_renders_after_json_deserialization(self):
         experience = self.make_experience("Deserialized Experience", 1)
+        owner = get_user_model().objects.create_superuser(
+            username="experience_json_owner", password="A-strong-test-password-2026"
+        )
+        self.client.force_login(owner)
 
         response = self.client.get(reverse("main:show_experience"))
 
@@ -580,6 +590,12 @@ class AwardFormTest(TestCase):
         "display_order": 0,
     }
 
+    def setUp(self):
+        owner = get_user_model().objects.create_superuser(
+            username="award_owner", password="A-strong-test-password-2026"
+        )
+        self.client.force_login(owner)
+
     def test_get_create_award_page(self):
         response = self.client.get(reverse("main:create_award"))
 
@@ -608,6 +624,12 @@ class AwardFormTest(TestCase):
 
 
 class AwardDeleteTest(TestCase):
+    def setUp(self):
+        owner = get_user_model().objects.create_superuser(
+            username="award_delete_owner", password="A-strong-test-password-2026"
+        )
+        self.client.force_login(owner)
+
     def make_award(self, title):
         return Award.objects.create(
             title=title,
@@ -815,3 +837,135 @@ class AuthenticationFlowTest(TestCase):
         self.assertNotContains(response, f'href="{reverse("main:register")}"')
         for route in ("show_main", "show_experience", "show_awards"):
             self.assertContains(response, f'href="{reverse("main:" + route)}"')
+
+
+class PortfolioAuthorizationTest(TestCase):
+    def setUp(self):
+        self.experience = Experience.objects.create(
+            title="Protected Experience", description="Keep this experience."
+        )
+        self.award = Award.objects.create(
+            title="Protected Award",
+            achievement="First Place",
+            year=2026,
+            description="Keep this award.",
+            photo_static_path="img/protected-award.jpeg",
+            photo_alt="Protected award photo",
+            photo_width=800,
+            photo_height=600,
+        )
+        self.write_routes = (
+            reverse("main:create_experience"),
+            reverse("main:update_experience", args=[self.experience.id]),
+            reverse("main:delete_experience", args=[self.experience.id]),
+            reverse("main:create_award"),
+            reverse("main:delete_award", args=[self.award.id]),
+        )
+
+    def test_anonymous_users_are_redirected_from_all_write_views(self):
+        for url in self.write_routes:
+            for method in ("get", "post"):
+                with self.subTest(url=url, method=method):
+                    response = getattr(self.client, method)(url)
+                    self.assertRedirects(
+                        response,
+                        f"{reverse('main:login')}?next={url}",
+                        fetch_redirect_response=False,
+                    )
+        self.assertEqual(Experience.objects.count(), 1)
+        self.assertEqual(Award.objects.count(), 1)
+
+    def test_regular_users_receive_403_from_all_write_views(self):
+        visitor = get_user_model().objects.create_user(
+            username="regular_visitor", password="A-strong-test-password-2026"
+        )
+        self.client.force_login(visitor)
+
+        for url in self.write_routes:
+            for method in ("get", "post"):
+                with self.subTest(url=url, method=method):
+                    self.assertEqual(getattr(self.client, method)(url).status_code, 403)
+        self.assertEqual(Experience.objects.count(), 1)
+        self.assertEqual(Award.objects.count(), 1)
+
+    def test_superuser_can_access_and_use_all_write_views(self):
+        owner = get_user_model().objects.create_superuser(
+            username="portfolio_owner", password="A-strong-test-password-2026"
+        )
+        self.client.force_login(owner)
+
+        for url in (self.write_routes[0], self.write_routes[1], self.write_routes[3]):
+            with self.subTest(url=url):
+                self.assertEqual(self.client.get(url).status_code, 200)
+        for url in (self.write_routes[2], self.write_routes[4]):
+            with self.subTest(url=url):
+                self.assertEqual(self.client.get(url).status_code, 405)
+
+        response = self.client.post(
+            self.write_routes[0],
+            ExperienceFormTest.valid_data | {"title": "New Experience"},
+        )
+        self.assertRedirects(response, reverse("main:show_experience"))
+        self.assertTrue(Experience.objects.filter(title="New Experience").exists())
+
+        response = self.client.post(
+            self.write_routes[1],
+            ExperienceFormTest.valid_data | {"title": "Updated Experience"},
+        )
+        self.assertRedirects(response, reverse("main:show_experience"))
+        self.experience.refresh_from_db()
+        self.assertEqual(self.experience.title, "Updated Experience")
+
+        response = self.client.post(
+            self.write_routes[3],
+            AwardFormTest.valid_data | {"title": "New Award"},
+        )
+        self.assertRedirects(response, reverse("main:show_awards"))
+        self.assertTrue(Award.objects.filter(title="New Award").exists())
+
+        self.assertRedirects(
+            self.client.post(self.write_routes[2]), reverse("main:show_experience")
+        )
+        self.assertFalse(Experience.objects.filter(pk=self.experience.pk).exists())
+        self.assertRedirects(self.client.post(self.write_routes[4]), reverse("main:show_awards"))
+        self.assertFalse(Award.objects.filter(pk=self.award.pk).exists())
+
+    def test_public_pages_and_json_remain_accessible_anonymously(self):
+        for url in (
+            reverse("main:show_main"),
+            reverse("main:show_experience"),
+            reverse("main:show_awards"),
+            reverse("main:get_experiences_json"),
+            reverse("main:show_json"),
+            reverse("main:show_json_by_id", args=[self.award.pk]),
+        ):
+            with self.subTest(url=url):
+                self.assertEqual(self.client.get(url).status_code, 200)
+
+    def test_write_controls_are_visible_only_to_superuser(self):
+        visitor = get_user_model().objects.create_user(
+            username="regular_visitor", password="A-strong-test-password-2026"
+        )
+        owner = get_user_model().objects.create_superuser(
+            username="portfolio_owner", password="A-strong-test-password-2026"
+        )
+
+        for user in (None, visitor, owner):
+            with self.subTest(user=user):
+                self.client.logout()
+                if user is not None:
+                    self.client.force_login(user)
+                experience_response = self.client.get(reverse("main:show_experience"))
+                award_response = self.client.get(reverse("main:show_awards"))
+                controls = (
+                    (experience_response, f'href="{self.write_routes[0]}"'),
+                    (experience_response, f'href="{self.write_routes[1]}"'),
+                    (experience_response, f'action="{self.write_routes[2]}"'),
+                    (award_response, f'href="{self.write_routes[3]}"'),
+                    (award_response, f'action="{self.write_routes[4]}"'),
+                )
+                for response, control in controls:
+                    if user == owner:
+                        self.assertContains(response, control)
+                    else:
+                        self.assertNotContains(response, control)

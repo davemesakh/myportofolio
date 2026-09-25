@@ -9,7 +9,9 @@
                 <header class="awards-intro">
                     <p class="awards-label">AWARDS</p>
                     <h2 id="awards-heading">A Few Proud Moments!!!</h2>
+                    {% if user.is_superuser %}
                     <a class="award-action" href="{% url 'main:create_award' %}">Add Award</a>
+                    {% endif %}
                 </header>
 
                 {% for award in award_list %}
@@ -19,6 +21,7 @@
                         <p class="awards-achievement">{{ award.achievement }}</p>
                         <p class="awards-year"><time datetime="{{ award.year }}">{{ award.year }}</time></p>
                         <p class="awards-description">{{ award.description }}</p>
+                        {% if user.is_superuser %}
                         <details class="award-delete-confirmation">
                             <summary>Delete</summary>
                             <div class="award-delete-popover">
@@ -30,6 +33,7 @@
                                 </form>
                             </div>
                         </details>
+                        {% endif %}
                     </div>
                     <figure class="awards-photo">
                         <img src="{% static award.photo_static_path %}"

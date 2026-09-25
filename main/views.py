@@ -1,10 +1,13 @@
+from functools import wraps
 from zoneinfo import ZoneInfo
 
 from django.contrib import messages
 from django.contrib.auth import login, logout
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib.staticfiles import finders
 from django.core import serializers
+from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -12,6 +15,16 @@ from django.views.decorators.http import require_POST
 
 from main.forms import AwardForm, ExperienceForm
 from main.models import Award, Experience
+
+
+def portfolio_owner_required(view_func):
+    @wraps(view_func)
+    def wrapped_view(request, *args, **kwargs):
+        if not request.user.is_superuser:
+            raise PermissionDenied
+        return view_func(request, *args, **kwargs)
+
+    return wrapped_view
 
 
 def register(request):
@@ -106,6 +119,8 @@ def get_experiences_json(request):
     )
 
 
+@login_required(login_url="main:login")
+@portfolio_owner_required
 def create_experience(request):
     if request.method == "POST":
         form = ExperienceForm(request.POST)
@@ -123,6 +138,8 @@ def create_experience(request):
     return render(request, "experience_form.html", context)
 
 
+@login_required(login_url="main:login")
+@portfolio_owner_required
 def update_experience(request, experience_id):
     experience = get_object_or_404(Experience, pk=experience_id)
 
@@ -143,6 +160,8 @@ def update_experience(request, experience_id):
     return render(request, "experience_form.html", context)
 
 
+@login_required(login_url="main:login")
+@portfolio_owner_required
 @require_POST
 def delete_experience(request, experience_id):
     experience = get_object_or_404(Experience, pk=experience_id)
@@ -158,6 +177,8 @@ def show_awards(request):
     return render(request, "awards.html", context)
 
 
+@login_required(login_url="main:login")
+@portfolio_owner_required
 def create_award(request):
     if request.method == "POST":
         form = AwardForm(request.POST)
@@ -170,6 +191,8 @@ def create_award(request):
     return render(request, "add_award.html", {"name": "David Mesakh", "form": form})
 
 
+@login_required(login_url="main:login")
+@portfolio_owner_required
 @require_POST
 def delete_award(request, award_id):
     award = get_object_or_404(Award, pk=award_id)
