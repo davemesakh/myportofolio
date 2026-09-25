@@ -1,3 +1,4 @@
+from datetime import datetime
 from io import StringIO
 import json
 import uuid
@@ -740,6 +741,32 @@ class AuthenticationFlowTest(TestCase):
         self.assertRedirects(response, reverse("main:show_main"))
         self.assertEqual(int(self.client.session["_auth_user_id"]), user.pk)
 
+    def test_successful_login_sets_last_login_cookie(self):
+        get_user_model().objects.create_user(username=self.username, password=self.password)
+
+        with patch("main.views.timezone.now", return_value=datetime.fromisoformat("2026-09-26T03:11:12+00:00")):
+            response = self.client.post(
+                reverse("main:login"), {"username": self.username, "password": self.password}
+            )
+
+        self.assertIn("last_login", response.cookies)
+        self.assertEqual(response.cookies["last_login"].value, "2026-09-26 10:11:12")
+
+    def test_profile_displays_last_login_cookie(self):
+        self.client.cookies["last_login"] = "2026-09-26 10:11:12"
+
+        response = self.client.get(reverse("main:show_main"))
+
+        self.assertEqual(response.context["last_login"], "2026-09-26 10:11:12")
+        self.assertContains(response, "Last Login")
+        self.assertContains(response, "2026-09-26 10:11:12")
+
+    def test_profile_uses_fallback_without_cookie(self):
+        response = self.client.get(reverse("main:show_main"))
+
+        self.assertEqual(response.context["last_login"], "No recent login recorded")
+        self.assertContains(response, "No recent login recorded")
+
     def test_invalid_login_shows_form_errors(self):
         get_user_model().objects.create_user(username=self.username, password=self.password)
 
@@ -756,11 +783,18 @@ class AuthenticationFlowTest(TestCase):
     def test_logout_redirects_to_profile_and_ends_session(self):
         user = get_user_model().objects.create_user(username=self.username, password=self.password)
         self.client.force_login(user)
+        self.client.cookies["last_login"] = "2026-09-26 10:11:12"
 
         response = self.client.get(reverse("main:logout"))
 
         self.assertRedirects(response, reverse("main:show_main"))
         self.assertNotIn("_auth_user_id", self.client.session)
+        self.assertIn("last_login", response.cookies)
+        self.assertEqual(response.cookies["last_login"].value, "")
+        self.assertEqual(response.cookies["last_login"]["max-age"], 0)
+        self.assertContains(
+            self.client.get(reverse("main:show_main")), "No recent login recorded"
+        )
 
     def test_anonymous_navbar(self):
         response = self.client.get(reverse("main:show_main"))

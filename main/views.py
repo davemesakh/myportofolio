@@ -1,10 +1,13 @@
+from zoneinfo import ZoneInfo
+
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
+from django.contrib.staticfiles import finders
 from django.core import serializers
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.contrib.staticfiles import finders
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from main.forms import AwardForm, ExperienceForm
@@ -25,17 +28,25 @@ def login_user(request):
     form = AuthenticationForm(request, data=request.POST or None)
     if request.method == "POST" and form.is_valid():
         login(request, form.get_user())
-        return redirect("main:show_main")
+        response = redirect("main:show_main")
+        response.set_cookie(
+            "last_login",
+            timezone.localtime(timezone.now(), ZoneInfo("Asia/Jakarta")).strftime("%Y-%m-%d %H:%M:%S"),
+        )
+        return response
 
     return render(request, "login.html", {"name": "David Mesakh", "form": form})
 
 
 def logout_user(request):
     logout(request)
-    return redirect("main:show_main")
+    response = redirect("main:show_main")
+    response.delete_cookie("last_login")
+    return response
 
 
 def show_main(request):
+    last_login = request.COOKIES.get("last_login") or "No recent login recorded"
     education_list = [
         {
             "institution": "Universitas Indonesia",
@@ -60,6 +71,7 @@ def show_main(request):
     context = {
         "education_list": education_list,
         "name": "David Mesakh",
+        "last_login": last_login,
         "npm": "2506604503",
         "study_program": "S1 Sistem Informasi",
         "bio": (
