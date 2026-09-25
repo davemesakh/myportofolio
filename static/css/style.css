@@ -198,6 +198,7 @@ h1, .brand {
 .site-header nav {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 2rem;
 }
 
@@ -503,6 +504,11 @@ h1, .brand {
     margin-bottom: 3.5rem;
 }
 
+.site-header .nav-user {
+    color: var(--ink);
+    font-weight: 700;
+}
+
 .award-action,
 .award-cancel {
     display: inline-block;
@@ -631,6 +637,22 @@ h1, .brand {
 }
 
 .award-form-control:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-color: var(--accent);
+}
+
+.auth-form input {
+    width: 100%;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background-color: #FFFFFF;
+    color: var(--ink);
+    font: inherit;
+}
+
+.auth-form input:focus {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
     border-color: var(--accent);

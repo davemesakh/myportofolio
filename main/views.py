@@ -1,3 +1,6 @@
+from django.contrib import messages
+from django.contrib.auth import login, logout
+from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.core import serializers
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -6,6 +9,30 @@ from django.views.decorators.http import require_POST
 
 from main.forms import AwardForm, ExperienceForm
 from main.models import Award, Experience
+
+
+def register(request):
+    form = UserCreationForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Account created. Please log in.")
+        return redirect("main:login")
+
+    return render(request, "register.html", {"name": "David Mesakh", "form": form})
+
+
+def login_user(request):
+    form = AuthenticationForm(request, data=request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        login(request, form.get_user())
+        return redirect("main:show_main")
+
+    return render(request, "login.html", {"name": "David Mesakh", "form": form})
+
+
+def logout_user(request):
+    logout(request)
+    return redirect("main:show_main")
 
 
 def show_main(request):

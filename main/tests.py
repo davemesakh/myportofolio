@@ -2,6 +2,7 @@ from io import StringIO
 import json
 import uuid
 from unittest.mock import patch
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.management import call_command, CommandError
 from main.management.commands.import_portfolio_experiences import (
@@ -554,6 +555,8 @@ class AwardsPageTest(TestCase):
                 (reverse("main:show_main"), "Profile"),
                 (reverse("main:show_experience"), "Experience"),
                 (reverse("main:show_awards"), "Awards"),
+                (reverse("main:login"), "Login"),
+                (reverse("main:register"), "Register"),
             ])
 
     def test_portfolio_admin_registration(self):
@@ -680,3 +683,101 @@ class AwardJsonTest(TestCase):
         self.assertEqual(len(payload), 1)
         self.assertEqual(payload[0]["pk"], target.id)
         self.assertEqual(payload[0]["fields"]["title"], target.title)
+
+
+class AuthenticationFlowTest(TestCase):
+    username = "portfolio_visitor"
+    password = "A-strong-test-password-2026"
+
+    def test_register_page_get(self):
+        response = self.client.get(reverse("main:register"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "register.html")
+        self.assertContains(response, "csrfmiddlewaretoken")
+        self.assertContains(response, 'name="password2"')
+
+    def test_successful_registration_creates_hashed_password_without_login(self):
+        response = self.client.post(
+            reverse("main:register"),
+            {"username": self.username, "password1": self.password, "password2": self.password},
+            follow=True,
+        )
+
+        self.assertRedirects(response, reverse("main:login"))
+        self.assertContains(response, "Account created. Please log in.")
+        user = get_user_model().objects.get(username=self.username)
+        self.assertNotEqual(user.password, self.password)
+        self.assertTrue(user.check_password(self.password))
+        self.assertFalse(response.wsgi_request.user.is_authenticated)
+
+    def test_invalid_registration_shows_errors_without_creating_user(self):
+        response = self.client.post(
+            reverse("main:register"),
+            {"username": self.username, "password1": self.password, "password2": "different"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "register.html")
+        self.assertIn("password2", response.context["form"].errors)
+        self.assertFalse(get_user_model().objects.filter(username=self.username).exists())
+
+    def test_login_page_get(self):
+        response = self.client.get(reverse("main:login"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "login.html")
+        self.assertContains(response, "csrfmiddlewaretoken")
+        self.assertContains(response, 'name="password"')
+
+    def test_successful_login_redirects_to_profile(self):
+        user = get_user_model().objects.create_user(username=self.username, password=self.password)
+
+        response = self.client.post(
+            reverse("main:login"), {"username": self.username, "password": self.password}
+        )
+
+        self.assertRedirects(response, reverse("main:show_main"))
+        self.assertEqual(int(self.client.session["_auth_user_id"]), user.pk)
+
+    def test_invalid_login_shows_form_errors(self):
+        get_user_model().objects.create_user(username=self.username, password=self.password)
+
+        response = self.client.post(
+            reverse("main:login"), {"username": self.username, "password": "wrong-password"}
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "login.html")
+        self.assertTrue(response.context["form"].non_field_errors())
+        self.assertContains(response, "Please enter a correct username and password")
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_logout_redirects_to_profile_and_ends_session(self):
+        user = get_user_model().objects.create_user(username=self.username, password=self.password)
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("main:logout"))
+
+        self.assertRedirects(response, reverse("main:show_main"))
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_anonymous_navbar(self):
+        response = self.client.get(reverse("main:show_main"))
+
+        self.assertContains(response, f'href="{reverse("main:login")}"')
+        self.assertContains(response, f'href="{reverse("main:register")}"')
+        self.assertNotContains(response, f'href="{reverse("main:logout")}"')
+
+    def test_authenticated_navbar(self):
+        user = get_user_model().objects.create_user(username=self.username, password=self.password)
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("main:show_main"))
+
+        self.assertContains(response, f'<span class="nav-user">{self.username}</span>', html=True)
+        self.assertContains(response, f'href="{reverse("main:logout")}"')
+        self.assertNotContains(response, f'href="{reverse("main:login")}"')
+        self.assertNotContains(response, f'href="{reverse("main:register")}"')
+        for route in ("show_main", "show_experience", "show_awards"):
+            self.assertContains(response, f'href="{reverse("main:" + route)}"')

@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+
+{% block title %}Login - {{ name }}{% endblock title %}
+
+{% block content %}
+<section class="award-form-page" aria-labelledby="login-heading">
+    <div class="container award-form-container">
+        <header class="award-form-intro">
+            <p class="awards-label">ACCOUNT</p>
+            <h1 id="login-heading">Login</h1>
+            <p>Welcome back.</p>
+        </header>
+
+        {% for message in messages %}
+        <p class="field-help" role="status">{{ message }}</p>
+        {% endfor %}
+
+        <form method="post" action="{% url 'main:login' %}" class="award-form auth-form" novalidate>
+            {% csrf_token %}
+            {% for error in form.non_field_errors %}
+            <p class="form-errors" role="alert">{{ error }}</p>
+            {% endfor %}
+            {% for field in form %}
+            <div class="award-form-field">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% for error in field.errors %}<p class="field-error" role="alert">{{ error }}</p>{% endfor %}
+            </div>
+            {% endfor %}
+            <div class="award-form-actions">
+                <button class="award-action" type="submit">Login</button>
+                <a class="award-cancel" href="{% url 'main:register' %}">Create an account</a>
+            </div>
+        </form>
+    </div>
+</section>
+{% endblock content %}

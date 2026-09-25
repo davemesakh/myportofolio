@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+
+{% block title %}Register - {{ name }}{% endblock title %}
+
+{% block content %}
+<section class="award-form-page" aria-labelledby="register-heading">
+    <div class="container award-form-container">
+        <header class="award-form-intro">
+            <p class="awards-label">ACCOUNT</p>
+            <h1 id="register-heading">Create an Account</h1>
+            <p>Join the portfolio community.</p>
+        </header>
+
+        <form method="post" action="{% url 'main:register' %}" class="award-form auth-form" novalidate>
+            {% csrf_token %}
+            {% for error in form.non_field_errors %}
+            <p class="form-errors" role="alert">{{ error }}</p>
+            {% endfor %}
+            {% for field in form %}
+            <div class="award-form-field">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}<div class="field-help">{{ field.help_text }}</div>{% endif %}
+                {% for error in field.errors %}<p class="field-error" role="alert">{{ error }}</p>{% endfor %}
+            </div>
+            {% endfor %}
+            <div class="award-form-actions">
+                <button class="award-action" type="submit">Register</button>
+                <a class="award-cancel" href="{% url 'main:login' %}">Already have an account? Login</a>
+            </div>
+        </form>
+    </div>
+</section>
+{% endblock content %}
