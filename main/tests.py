@@ -4,6 +4,7 @@ import json
 import uuid
 from unittest.mock import patch
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 from django.core.management import call_command, CommandError
 from main.management.commands.import_portfolio_experiences import (
@@ -887,6 +888,35 @@ class PortfolioAuthorizationTest(TestCase):
                     self.assertEqual(getattr(self.client, method)(url).status_code, 403)
         self.assertEqual(Experience.objects.count(), 1)
         self.assertEqual(Award.objects.count(), 1)
+
+    def test_editor_can_update_and_star_but_cannot_create_or_delete(self):
+        editor = get_user_model().objects.create_user(username="experience_editor")
+        editor.groups.add(Group.objects.create(name="Editor"))
+        self.client.force_login(editor)
+
+        experience_response = self.client.get(reverse("main:show_experience"))
+        self.assertTrue(experience_response.context["is_editor"])
+        self.assertContains(experience_response, f'href="{self.write_routes[1]}"')
+        self.assertNotContains(experience_response, f'href="{self.write_routes[0]}"')
+        self.assertNotContains(experience_response, f'action="{self.write_routes[2]}"')
+        self.assertEqual(self.client.get(self.write_routes[1]).status_code, 200)
+
+        response = self.client.post(
+            self.write_routes[1],
+            ExperienceFormTest.valid_data | {"title": "Editor Updated Experience"},
+        )
+        self.assertRedirects(response, reverse("main:show_experience"))
+        self.experience.refresh_from_db()
+        self.assertEqual(self.experience.title, "Editor Updated Experience")
+
+        star_url = reverse("main:toggle_experience_star", args=[self.experience.id])
+        self.assertRedirects(self.client.post(star_url), reverse("main:show_experience"))
+        self.assertTrue(self.experience.starred_by.filter(pk=editor.pk).exists())
+
+        for url in (self.write_routes[0], self.write_routes[2]):
+            for method in ("get", "post"):
+                with self.subTest(url=url, method=method):
+                    self.assertEqual(getattr(self.client, method)(url).status_code, 403)
 
     def test_superuser_can_access_and_use_all_write_views(self):
         owner = get_user_model().objects.create_superuser(

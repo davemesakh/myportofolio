@@ -35,6 +35,20 @@ def portfolio_owner_required(view_func):
     return wrapped_view
 
 
+def is_editor(user):
+    return user.is_authenticated and user.groups.filter(name="Editor").exists()
+
+
+def editor_or_superuser_required(view_func):
+    @wraps(view_func)
+    def wrapped_view(request, *args, **kwargs):
+        if not (request.user.is_superuser or is_editor(request.user)):
+            raise PermissionDenied
+        return view_func(request, *args, **kwargs)
+
+    return wrapped_view
+
+
 def register(request):
     form = UserCreationForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
@@ -128,6 +142,7 @@ def show_experience(request):
     context = {
         "name": "David Mesakh",
         "experience_list": experience_list,
+        "is_editor": is_editor(request.user),
     }
     return render(request, "experience.html", context)
 
@@ -175,7 +190,7 @@ def create_experience(request):
 
 
 @login_required(login_url="main:login")
-@portfolio_owner_required
+@editor_or_superuser_required
 def update_experience(request, experience_id):
     experience = get_object_or_404(Experience, pk=experience_id)
 

@@ -53,14 +53,16 @@
                                 {% endif %}
                                 <span class="experience-star-count">★ {{ experience.star_count }} star{{ experience.star_count|pluralize }}</span>
                             </div>
-                            {% if user.is_superuser %}
+                            {% if is_editor or user.is_superuser %}
                             <div class="award-form-actions experience-item-actions">
                                 <a class="award-cancel" href="{% url 'main:update_experience' experience.id %}">Edit</a>
+                                {% if user.is_superuser %}
                                 <form method="post" action="{% url 'main:delete_experience' experience.id %}">
                                     {% csrf_token %}
                                     <button class="award-delete-confirm" type="submit"
                                             aria-label="Delete {{ experience.title }}">Delete</button>
                                 </form>
+                                {% endif %}
                             </div>
                             {% endif %}
                         </div>
