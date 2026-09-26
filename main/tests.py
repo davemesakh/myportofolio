@@ -11,7 +11,7 @@ from main.management.commands.import_portfolio_experiences import (
     EXPERIENCES, LEGACY_CALCULUS_DESCRIPTION,
 )
 
-from django.test import TestCase
+from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
@@ -1045,6 +1045,23 @@ class ExperienceStarTest(TestCase):
         self.assertTrue(self.experience.starred_by.filter(pk=user.pk).exists())
         self.assertRedirects(self.client.post(self.star_url), reverse("main:show_experience"))
         self.assertFalse(self.experience.starred_by.filter(pk=user.pk).exists())
+
+    def test_star_post_requires_csrf_token(self):
+        user = get_user_model().objects.create_user(username="csrf_stargazer")
+        client = Client(enforce_csrf_checks=True)
+        client.force_login(user)
+
+        page = client.get(reverse("main:show_experience"))
+        self.assertContains(page, f'action="{self.star_url}"')
+        self.assertIn("csrftoken", client.cookies)
+
+        self.assertEqual(client.post(self.star_url).status_code, 403)
+        self.assertEqual(self.experience.starred_by.count(), 0)
+        response = client.post(
+            self.star_url, HTTP_X_CSRFTOKEN=client.cookies["csrftoken"].value
+        )
+        self.assertRedirects(response, reverse("main:show_experience"))
+        self.assertTrue(self.experience.starred_by.filter(pk=user.pk).exists())
 
     def test_superuser_and_multiple_users_can_star_same_experience(self):
         owner = get_user_model().objects.create_superuser(

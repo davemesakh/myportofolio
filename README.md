@@ -86,6 +86,30 @@ Perintah berikut menggunakan PowerShell dari direktori proyek. Environment penge
 
 `db.sqlite3`, `.env`, `env/`, dan `__pycache__/` diabaikan Git. Database lokal tidak ikut di-push; lingkungan lain memerlukan migrasi, pengisian data, dan akun admin tersendiri. Jangan mengedit migrasi lama yang sudah diterapkan. Deployment Tugas 3 pada PWS telah diperiksa secara manual setelah kode terbaru dimuat ulang.
 
+## Tugas Individu 4
+
+Autentikasi dari Tutorial 4 menggunakan registrasi, login, dan logout bawaan Django. Login menyimpan sesi dan cookie `last_login` dalam waktu Asia/Jakarta; logout mengakhiri sesi serta menghapus cookie tersebut. Pengunjung tanpa akun dapat membaca Profile, Experience, Awards, dan endpoint JSON, tetapi aksi akun mengarah ke halaman login.
+
+Hak akses Experience mengikuti peran berikut:
+
+| Peran | Baca | Star/Unstar | Tambah | Ubah | Hapus |
+| --- | --- | --- | --- | --- | --- |
+| Pengunjung | Ya | Login diperlukan | Login diperlukan | Login diperlukan | Login diperlukan |
+| Pengguna biasa | Ya | Ya | 403 | 403 | 403 |
+| Anggota grup `Editor` | Ya | Ya | 403 | Ya | 403 |
+| Superuser | Ya | Ya | Ya | Ya | Ya |
+
+Keanggotaan `Editor` menggunakan Django Group bernama persis `Editor`; buat grup dan tambahkan pengguna melalui Django admin. Tombol Add, Edit, dan Delete pada halaman Experience mengikuti izin tersebut. Star/Unstar memerlukan login dan form POST dengan token CSRF; setiap pengguna dapat memberi atau mencabut satu star pada setiap Experience. JSON Experience hanya memuat field Experience yang ditentukan, tanpa identitas pengguna atau data relasi star.
+
+Jalankan proyek dengan langkah virtual environment, migrasi, dan `runserver` pada bagian **Cara Menjalankan Proyek**. Untuk pemeriksaan Tugas 4 dari direktori proyek, jalankan:
+
+```powershell
+python manage.py check
+python manage.py test main
+```
+
+Jika virtual environment belum diaktifkan, ganti `python` dengan `.\env\Scripts\python.exe`.
+
 ## Progres Mingguan
 
 | Periode | Progres |
@@ -94,6 +118,7 @@ Perintah berikut menggunakan PowerShell dari direktori proyek. Environment penge
 | 6-7 September 2026 | Experience dan Awards statis, tema Summer Splash, logo, crop foto, serta interaksi profil. |
 | Tugas Individu 2 | Awards berbasis database, pemindahan Experience, command impor berulang, admin, tests, penghapusan Projects, serta Education Journey pada Profile. |
 | Tugas Individu 3 | Experience mendukung create, update, delete, validasi form, data delivery JSON, serta tampilan data setelah proses deserialization JSON. |
+| Tugas Individu 4 | Autentikasi dan sesi dari Tutorial 4, hak akses Editor untuk update Experience, serta star/unstar per pengguna dengan CSRF. |
 
 ## Pertanyaan Reflektif
 
@@ -153,3 +178,5 @@ Pada Tugas 3, ChatGPT dan Codex digunakan untuk merencanakan implementasi, menga
 [Ringkasan penggunaan AI Tugas 2](docs/ai-usage-tugas-2.md) memuat prompt dan perubahan penting yang tersedia dalam percakapan Codex. Dokumen tersebut adalah ringkasan, bukan transkrip lengkap. URL percakapan tidak dicantumkan karena tidak tersedia.
 
 [Ringkasan penggunaan AI Tugas 3](docs/ai-usage-tugas-3.md) mencatat audit, implementasi CRUD, data delivery JSON, strategi pengujian, pembaruan dokumentasi, dan keterbatasan verifikasi yang ditemui.
+
+[Ringkasan penggunaan AI Tugas 4](docs/ai-usage-tugas-4.md) menjelaskan peran ChatGPT dan Codex, perubahan terfokus, serta pemeriksaan yang dilakukan untuk autentikasi, hak akses, dan star/unstar Experience.
