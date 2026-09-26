@@ -44,7 +44,9 @@ Perintah berikut menggunakan PowerShell dari direktori proyek. Environment penge
 
    `portofolio/settings.py` memanggil `load_dotenv()`, sehingga `.env` dapat memuat `PRODUCTION=False`. Variabel proses yang sudah disetel tidak ditimpa oleh pemuatan `.env` default. Dalam mode ini database berada di `db.sqlite3` dan tidak membutuhkan kredensial database.
 
-   Jika `PRODUCTION=True`, konfigurasi menggunakan PostgreSQL dan membaca `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`, serta `SCHEMA` (default `public`). Nilainya harus berasal dari lingkungan tujuan; jangan menyalin rahasia ke README atau Git. Panduan ini hanya untuk lokal, bukan prosedur deployment PWS. `PRODUCTION` memilih database, bukan otomatis mengatur seluruh konfigurasi keamanan; `DEBUG` saat ini disetel langsung dalam settings.
+   Jika `PRODUCTION=True`, konfigurasi menggunakan PostgreSQL dan membaca `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`, serta `SCHEMA` (default `public`). Produksi juga wajib menyediakan `SECRET_KEY` yang acak dan rahasia melalui environment; aplikasi menolak untuk mulai jika variabel ini kosong. `DEBUG` menjadi `False`, sedangkan cookie sesi dan CSRF hanya dikirim melalui HTTPS. Nilai environment produksi harus berasal dari lingkungan PWS; jangan menyalin rahasia ke README atau Git. Panduan ini hanya untuk lokal, bukan prosedur deployment PWS.
+
+   Pengalihan HTTPS, kepercayaan header HTTPS dari proxy, dan HSTS belum diaktifkan di Django karena perilaku reverse proxy PWS belum terverifikasi. Pastikan HTTPS pada domain PWS dan alur login/POST bekerja setelah konfigurasi environment diterapkan, lalu evaluasi pengaturan tersebut berdasarkan konfigurasi proxy yang sebenarnya.
 
 4. Terapkan migrasi yang sudah tersedia.
 

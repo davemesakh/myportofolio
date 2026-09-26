@@ -14,6 +14,7 @@ from pathlib import Path
 
 import os
 from dotenv import load_dotenv
+from django.core.exceptions import ImproperlyConfigured
 
 # Load environment variables form .env files
 load_dotenv()
@@ -25,11 +26,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-ohm^5i&bdw2v*s1mnnaq8)yr)h#vsls5%*b9z-c!8rv+2u=c*^'
+PRODUCTION = os.getenv('PRODUCTION', 'False').lower() == 'true'
+SECRET_KEY = os.getenv('SECRET_KEY')
+if PRODUCTION and not SECRET_KEY:
+    raise ImproperlyConfigured('SECRET_KEY must be set when PRODUCTION=True.')
+if not SECRET_KEY:
+    SECRET_KEY = 'development-only-key-for-local-portfolio-testing-never-use-in-production'
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = not PRODUCTION
+SESSION_COOKIE_SECURE = PRODUCTION
+CSRF_COOKIE_SECURE = PRODUCTION
 
 ALLOWED_HOSTS = [
     "localhost",
@@ -40,8 +46,6 @@ ALLOWED_HOSTS = [
 CSRF_TRUSTED_ORIGINS = [
     "https://david-mesakh-myportofolio.pws.cs.ui.ac.id",
 ]
-
-PRODUCTION = os.getenv('PRODUCTION', 'False').lower() == 'true'
 
 # Application definition
 
