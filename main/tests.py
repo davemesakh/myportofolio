@@ -984,7 +984,7 @@ class PortfolioAuthorizationTest(TestCase):
                 experience_response = self.client.get(reverse("main:show_experience"))
                 award_response = self.client.get(reverse("main:show_awards"))
                 controls = (
-                    (experience_response, f'href="{self.write_routes[0]}"'),
+                    (experience_response, 'popovertarget="add-experience-modal"'),
                     (award_response, f'href="{self.write_routes[3]}"'),
                     (award_response, f'action="{self.write_routes[4]}"'),
                 )
@@ -996,6 +996,43 @@ class PortfolioAuthorizationTest(TestCase):
                 ajax_record = self.client.get(reverse("main:get_experiences_ajax")).json()["experiences"][0]
                 self.assertEqual(ajax_record["can_edit"], user == owner)
                 self.assertEqual(ajax_record["can_delete"], user == owner)
+
+
+class ExperienceModalTest(TestCase):
+    def test_only_superuser_receives_add_modal_and_blank_form(self):
+        regular = get_user_model().objects.create_user(username="modal_regular")
+        editor = get_user_model().objects.create_user(username="modal_editor")
+        editor.groups.add(Group.objects.create(name="Editor"))
+        owner = get_user_model().objects.create_superuser(
+            username="modal_owner", password="A-strong-test-password-2026"
+        )
+
+        for user in (None, regular, editor, owner):
+            with self.subTest(user=user):
+                self.client.logout()
+                if user is not None:
+                    self.client.force_login(user)
+                response = self.client.get(reverse("main:show_experience"))
+                if user == owner:
+                    self.assertIsInstance(response.context["experience_form"], ExperienceForm)
+                    self.assertFalse(response.context["experience_form"].is_bound)
+                    self.assertContains(response, 'popovertarget="add-experience-modal"')
+                    self.assertContains(response, 'id="add-experience-modal"')
+                    self.assertContains(response, 'popover="auto"')
+                    self.assertContains(response, 'role="dialog"')
+                    self.assertContains(response, 'method="post"')
+                    self.assertContains(
+                        response, f'action="{reverse("main:create_experience")}"'
+                    )
+                    self.assertContains(response, 'name="csrfmiddlewaretoken"')
+                    for field_name in ExperienceForm().fields:
+                        self.assertContains(response, f'name="{field_name}"')
+                    self.assertContains(response, 'popovertargetaction="hide"', count=2)
+                else:
+                    self.assertNotIn("experience_form", response.context)
+                    self.assertNotContains(response, 'popovertarget="add-experience-modal"')
+                    self.assertNotContains(response, 'id="add-experience-modal"')
+                    self.assertNotContains(response, f'action="{reverse("main:create_experience")}"')
 
 
 class ExperienceAjaxTest(TestCase):

@@ -10,7 +10,7 @@
             <p class="experience-label">EXPERIENCE</p>
             <h2 id="experience-heading">What I've Been Up To..?</h2>
             {% if user.is_superuser %}
-            <a class="award-action" href="{% url 'main:create_experience' %}">Add Experience</a>
+            <button class="award-action" type="button" popovertarget="add-experience-modal">Add Experience</button>
             {% endif %}
         </header>
 
@@ -32,5 +32,8 @@
         <p id="experience-error" class="experience-state" role="alert" hidden>Experiences could not be loaded. Please refresh the page.</p>
     </div>
 </section>
+{% if user.is_superuser %}
+{% include 'components/experience_form_modal.html' %}
+{% endif %}
 <script src="{% static 'js/experience.js' %}" defer></script>
 {% endblock content %}

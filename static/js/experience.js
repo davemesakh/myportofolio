@@ -171,6 +171,11 @@ function searchExperiences() {
     if (searchInput) fetchExperiences(searchInput.value.trim());
 }
 
+function closeExperienceModal() {
+    const modal = document.getElementById("add-experience-modal");
+    if (modal?.matches(":popover-open")) modal.hidePopover();
+}
+
 if (searchForm && searchInput) {
     searchInput.addEventListener("input", () => {
         clearTimeout(searchDebounceTimer);

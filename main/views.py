@@ -121,7 +121,10 @@ Hello!!! I'm Dave, I'm a 2nd year Information Systems student at Universitas Ind
 
 
 def show_experience(request):
-    return render(request, "experience.html", {"name": "David Mesakh"})
+    context = {"name": "David Mesakh"}
+    if request.user.is_superuser:
+        context["experience_form"] = ExperienceForm()
+    return render(request, "experience.html", context)
 
 
 def get_experiences_ajax(request):
