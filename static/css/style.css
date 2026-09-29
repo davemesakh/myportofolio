@@ -698,6 +698,62 @@ textarea.award-form-control { resize: vertical; }
 
 .experience-item-actions { margin-top: 1.25rem; }
 
+#toast-component[popover] {
+    position: fixed;
+    inset: auto 1.5rem 1.5rem auto;
+    width: min(24rem, calc(100vw - 3rem));
+    margin: 0;
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.875rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: #FFFFFF;
+    color: var(--ink);
+    box-shadow: 0 8px 20px rgba(19, 60, 85, 0.18);
+    opacity: 0;
+    transform: translateY(1rem);
+    transition: opacity 250ms ease, transform 250ms ease;
+}
+
+#toast-component[popover]:not(:popover-open) { display: none; }
+
+#toast-component.toast-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.toast-indicator {
+    flex: 0 0 0.5rem;
+    align-self: stretch;
+    border-radius: var(--radius);
+    background: var(--accent);
+}
+
+.toast-success .toast-indicator { background: #23825A; }
+.toast-error .toast-indicator { background: #9B1C1C; }
+.toast-normal .toast-indicator { background: var(--accent); }
+
+.toast-content { min-width: 0; }
+
+#toast-title {
+    font-family: "Space Grotesk", -apple-system, sans-serif;
+    font-size: 1rem;
+    line-height: 1.4;
+}
+
+#toast-message {
+    margin-top: 0.25rem;
+    color: var(--text-muted);
+    font-size: 0.9375rem;
+    overflow-wrap: anywhere;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #toast-component[popover] { transition: none; }
+}
+
 .awards-label {
     margin-bottom: 1rem;
     color: var(--accent);
