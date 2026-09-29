@@ -1,4 +1,3 @@
-from collections import Counter
 from functools import wraps
 from zoneinfo import ZoneInfo
 
@@ -9,8 +8,11 @@ from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib.staticfiles import finders
 from django.core import serializers
 from django.core.exceptions import PermissionDenied
-from django.http import HttpResponse
+from django.db.models import Count
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.templatetags.static import static
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
@@ -119,32 +121,57 @@ Hello!!! I'm Dave, I'm a 2nd year Information Systems student at Universitas Ind
 
 
 def show_experience(request):
-    json_response = get_experiences_json(request)
-    serialized_experiences = json_response.content.decode("utf-8")
-    experience_list = [
-        deserialized.object
-        for deserialized in serializers.deserialize("json", serialized_experiences)
-    ]
-    star_counts = Counter()
-    starred_experience_ids = set()
-    if experience_list:
-        star_rows = Experience.starred_by.through.objects.filter(
-            experience_id__in=[experience.id for experience in experience_list]
-        ).values_list("experience_id", "user_id")
-        for experience_id, user_id in star_rows:
-            star_counts[experience_id] += 1
-            if request.user.is_authenticated and user_id == request.user.pk:
-                starred_experience_ids.add(experience_id)
-    for experience in experience_list:
-        experience.star_count = star_counts[experience.id]
-        experience.is_starred_by_user = experience.id in starred_experience_ids
+    return render(request, "experience.html", {"name": "David Mesakh"})
 
-    context = {
-        "name": "David Mesakh",
-        "experience_list": experience_list,
-        "is_editor": is_editor(request.user),
-    }
-    return render(request, "experience.html", context)
+
+def get_experiences_ajax(request):
+    experiences = list(
+        Experience.objects.annotate(star_count=Count("starred_by"))
+        .order_by("display_order", "id")
+    )
+    authenticated = request.user.is_authenticated
+    can_edit = authenticated and (request.user.is_superuser or is_editor(request.user))
+    can_delete = authenticated and request.user.is_superuser
+    starred_ids = set()
+    if authenticated and experiences:
+        starred_ids = set(
+            Experience.starred_by.through.objects.filter(
+                experience_id__in=[experience.pk for experience in experiences],
+                user_id=request.user.pk,
+            ).values_list("experience_id", flat=True)
+        )
+
+    data = [
+        {
+            "pk": str(experience.pk),
+            "title": experience.title,
+            "description": experience.description,
+            "description_paragraphs": experience.description_paragraphs,
+            "category": experience.category,
+            "thumbnail": experience.thumbnail,
+            "organization": experience.organization,
+            "logo_static_path": experience.logo_static_path,
+            "logo_url": static(experience.logo_static_path) if experience.logo_static_path else None,
+            "logo_alt": experience.logo_alt,
+            "start_year": experience.start_year,
+            "start_month": experience.start_month,
+            "end_year": experience.end_year,
+            "end_month": experience.end_month,
+            "is_current": experience.is_current,
+            "display_order": experience.display_order,
+            "start_period": experience.start_period,
+            "end_period": experience.end_period,
+            "star_count": experience.star_count,
+            "is_starred": experience.pk in starred_ids,
+            "can_edit": can_edit,
+            "can_delete": can_delete,
+            "star_url": reverse("main:toggle_experience_star", args=[experience.pk]) if authenticated else None,
+            "edit_url": reverse("main:update_experience", args=[experience.pk]) if can_edit else None,
+            "delete_url": reverse("main:delete_experience", args=[experience.pk]) if can_delete else None,
+        }
+        for experience in experiences
+    ]
+    return JsonResponse({"is_authenticated": authenticated, "experiences": data})
 
 
 def get_experiences_json(request):

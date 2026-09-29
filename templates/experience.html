@@ -4,73 +4,24 @@
 {% block title %}Experience - {{ name }}{% endblock title %}
 
 {% block content %}
-        <section class="experience" id="experience" aria-labelledby="experience-heading">
-            <div class="container">
-                <header class="experience-intro">
-                    <p class="experience-label">EXPERIENCE</p>
-                    <h2 id="experience-heading">What I've Been Up To..?</h2>
-                    {% if user.is_superuser %}
-                    <a class="award-action" href="{% url 'main:create_experience' %}">Add Experience</a>
-                    {% endif %}
-                </header>
+<section class="experience" id="experience" aria-labelledby="experience-heading">
+    <div class="container">
+        <header class="experience-intro">
+            <p class="experience-label">EXPERIENCE</p>
+            <h2 id="experience-heading">What I've Been Up To..?</h2>
+            {% if user.is_superuser %}
+            <a class="award-action" href="{% url 'main:create_experience' %}">Add Experience</a>
+            {% endif %}
+        </header>
 
-                <div class="experience-list">
-                    {% for experience in experience_list %}
-                    <article class="experience-item">
-                        {% if experience.logo_static_path %}
-                        <img class="experience-logo" src="{% static experience.logo_static_path %}"
-                             alt="{{ experience.logo_alt }}" width="88" height="88" loading="lazy">
-                        {% endif %}
-                        <header class="experience-header">
-                            <div class="experience-identity">
-                                {% if experience.organization %}
-                                <h3 class="experience-organization">{{ experience.organization }}</h3>
-                                <p class="experience-role">{{ experience.title }}</p>
-                                {% else %}
-                                <h3 class="experience-organization">{{ experience.title }}</h3>
-                                {% endif %}
-                            </div>
-                            {% if experience.start_period or experience.end_period or experience.is_current %}
-                            <p class="experience-period">
-                                {% if experience.start_period %}<time datetime="{{ experience.start_period.iso }}">{{ experience.start_period.label }}</time>{% endif %}
-                                {% if experience.is_current %}{% if experience.start_period %} &ndash; {% endif %}Present{% elif experience.end_period %}{% if experience.start_period %} &ndash; {% endif %}<time datetime="{{ experience.end_period.iso }}">{{ experience.end_period.label }}</time>{% endif %}
-                            </p>
-                            {% endif %}
-                        </header>
-                        <div class="experience-contributions">
-                            {% for paragraph in experience.description_paragraphs %}
-                            <p>{{ paragraph }}</p>
-                            {% endfor %}
-                            <div class="experience-star">
-                                {% if user.is_authenticated %}
-                                <form method="post" action="{% url 'main:toggle_experience_star' experience.id %}">
-                                    {% csrf_token %}
-                                    <button class="award-cancel experience-star-button{% if experience.is_starred_by_user %} is-starred{% endif %}"
-                                            type="submit" aria-label="{% if experience.is_starred_by_user %}Unstar{% else %}Star{% endif %} {{ experience.title }}">
-                                        {% if experience.is_starred_by_user %}Unstar{% else %}Star{% endif %}
-                                    </button>
-                                </form>
-                                {% endif %}
-                                <span class="experience-star-count">★ {{ experience.star_count }} star{{ experience.star_count|pluralize }}</span>
-                            </div>
-                            {% if is_editor or user.is_superuser %}
-                            <div class="award-form-actions experience-item-actions">
-                                <a class="award-cancel" href="{% url 'main:update_experience' experience.id %}">Edit</a>
-                                {% if user.is_superuser %}
-                                <form method="post" action="{% url 'main:delete_experience' experience.id %}">
-                                    {% csrf_token %}
-                                    <button class="award-delete-confirm" type="submit"
-                                            aria-label="Delete {{ experience.title }}">Delete</button>
-                                </form>
-                                {% endif %}
-                            </div>
-                            {% endif %}
-                        </div>
-                    </article>
-                    {% empty %}
-                    <p class="empty-state" lang="id">Belum ada pengalaman yang ditambahkan.</p>
-                    {% endfor %}
-                </div>
-            </div>
-        </section>
+        {% if user.is_authenticated %}
+        <input id="experience-csrf-token" type="hidden" value="{{ csrf_token }}">
+        {% endif %}
+        <p id="experience-loading" class="experience-state" role="status">Loading experiences...</p>
+        <div id="experience-list" class="experience-list" data-url="{% url 'main:get_experiences_ajax' %}" hidden></div>
+        <p id="experience-empty" class="experience-state empty-state" lang="id" hidden>Belum ada pengalaman yang ditambahkan.</p>
+        <p id="experience-error" class="experience-state" role="alert" hidden>Experiences could not be loaded. Please refresh the page.</p>
+    </div>
+</section>
+<script src="{% static 'js/experience.js' %}" defer></script>
 {% endblock content %}

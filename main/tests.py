@@ -55,13 +55,18 @@ class MainTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "experience.html")
-        self.assertContains(response, self.experience.title)
-        self.assertContains(response, self.experience.description)
-        self.assertNotContains(response, "Present")
-        self.assertNotContains(response, 'src=""')
+        self.assertContains(response, f'data-url="{reverse("main:get_experiences_ajax")}"')
+        self.assertContains(response, 'id="experience-loading"')
+        self.assertContains(response, 'id="experience-list"')
+        self.assertContains(response, 'id="experience-error"')
+        self.assertNotContains(response, self.experience.title)
         self.assertContains(
             response,
             f'href="{reverse("main:show_main")}"'
+        )
+        self.assertEqual(
+            self.client.get(reverse("main:get_experiences_ajax")).json()["experiences"][0]["title"],
+            self.experience.title,
         )
 
     def test_experience_page_empty_state(self):
@@ -70,7 +75,9 @@ class MainTest(TestCase):
         response = self.client.get(reverse("main:show_experience"))
 
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="experience-empty"')
         self.assertContains(response, "Belum ada pengalaman yang ditambahkan.")
+        self.assertEqual(self.client.get(reverse("main:get_experiences_ajax")).json()["experiences"], [])
 
     def test_completed_experience_status(self):
         self.experience.ended_at = timezone.now()
@@ -159,37 +166,38 @@ class PortfolioExperienceTest(TestCase):
 
     def test_portfolio_content_order_paragraphs_and_periods(self):
         self.run_import()
-        response = self.client.get(reverse("main:show_experience"))
+        response = self.client.get(reverse("main:get_experiences_ajax"))
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "experience.html")
-        records = list(response.context["experience_list"])
-        self.assertEqual([r.source_key for r in records], [d["source_key"] for d in EXPERIENCES])
-        self.assertContains(response, 'class="experience-item"', count=4)
-        self.assertContains(response, "Present", count=3)
-        self.assertContains(response, '<time datetime="2026-04">Apr 2026</time>', html=True)
-        self.assertContains(response, '<time datetime="2026-01">Jan 2026</time>', html=True)
-        self.assertContains(response, '<time datetime="2026-08">Aug 2026</time>', html=True)
-        for data in EXPERIENCES:
-            self.assertContains(response, data["title"])
-            self.assertContains(response, data["organization"])
-            self.assertContains(response, '/static/' + data["logo_static_path"])
-            for paragraph in data["description"].split("\n\n"):
-                self.assertContains(response, f"<p>{paragraph}</p>", html=True)
+        records = response.json()["experiences"]
+        self.assertEqual([r["title"] for r in records], [d["title"] for d in EXPERIENCES])
+        self.assertEqual(len(records), 4)
+        self.assertEqual(sum(bool(r["is_current"]) for r in records), 3)
+        self.assertEqual([r["start_period"] for r in records], [
+            {"iso": "2026-01", "label": "Jan 2026"},
+            {"iso": "2026-04", "label": "Apr 2026"},
+            {"iso": "2026-04", "label": "Apr 2026"},
+            {"iso": "2026-08", "label": "Aug 2026"},
+        ])
+        for record, data in zip(records, EXPERIENCES):
+            self.assertEqual(record["organization"], data["organization"])
+            self.assertEqual(record["logo_url"], '/static/' + data["logo_static_path"])
+            self.assertEqual(record["description_paragraphs"], data["description"].split("\n\n"))
 
     def test_order_tie_uses_id(self):
         import uuid
         for number in (2, 1):
             Experience.objects.create(id=uuid.UUID(int=number), title=str(number), description="x", display_order=1)
-        response = self.client.get(reverse("main:show_experience"))
-        self.assertEqual([r.title for r in response.context["experience_list"]], ["1", "2"])
+        response = self.client.get(reverse("main:get_experiences_ajax"))
+        self.assertEqual([r["title"] for r in response.json()["experiences"]], ["1", "2"])
 
     def test_paragraphs_and_autoescaping(self):
         record = Experience.objects.create(title="<script>bad</script>", description="First\r\n \r\n<b>Second</b>")
         self.assertEqual(record.description_paragraphs, ["First", "<b>Second</b>"])
-        response = self.client.get(reverse("main:show_experience"))
-        self.assertContains(response, "&lt;script&gt;bad&lt;/script&gt;")
-        self.assertContains(response, "&lt;b&gt;Second&lt;/b&gt;")
-        self.assertNotContains(response, "<script>")
+        page = self.client.get(reverse("main:show_experience"))
+        self.assertNotContains(page, "<script>bad</script>")
+        record_data = self.client.get(reverse("main:get_experiences_ajax")).json()["experiences"][0]
+        self.assertEqual(record_data["title"], "<script>bad</script>")
+        self.assertEqual(record_data["description_paragraphs"], ["First", "<b>Second</b>"])
 
     def test_partial_dates_and_month_validation(self):
         record = Experience(title="Legacy", description="x", start_year=2020)
@@ -203,16 +211,16 @@ class PortfolioExperienceTest(TestCase):
 
     def test_completed_period_and_nullable_status(self):
         record = Experience.objects.create(**EXPERIENCES[0])
-        response = self.client.get(reverse("main:show_experience"))
-        self.assertNotContains(response, "Present")
-        self.assertContains(response, "Apr 2026")
+        response = self.client.get(reverse("main:get_experiences_ajax"))
+        self.assertFalse(response.json()["experiences"][0]["is_current"])
+        self.assertEqual(response.json()["experiences"][0]["end_period"]["label"], "Apr 2026")
         record.is_current = None
         record.end_year = None
         record.end_month = None
         record.save()
-        response = self.client.get(reverse("main:show_experience"))
-        self.assertNotContains(response, "Present")
-        self.assertNotContains(response, "None")
+        response = self.client.get(reverse("main:get_experiences_ajax"))
+        self.assertIsNone(response.json()["experiences"][0]["end_period"])
+        self.assertIsNone(response.json()["experiences"][0]["is_current"])
 
 
 class ExperienceFormTest(TestCase):
@@ -411,19 +419,13 @@ class ExperienceFormTest(TestCase):
     def test_experience_page_has_edit_and_delete_controls(self):
         experience = self.make_experience()
 
-        response = self.client.get(reverse("main:show_experience"))
-
-        self.assertContains(
-            response,
-            f'href="{reverse("main:update_experience", args=[experience.id])}"',
-            html=False,
-        )
-        self.assertContains(
-            response,
-            f'action="{reverse("main:delete_experience", args=[experience.id])}"',
-            html=False,
-        )
-        self.assertContains(response, "csrfmiddlewaretoken")
+        page = self.client.get(reverse("main:show_experience"))
+        self.assertContains(page, 'id="experience-csrf-token"')
+        record = self.client.get(reverse("main:get_experiences_ajax")).json()["experiences"][0]
+        self.assertEqual(record["edit_url"], reverse("main:update_experience", args=[experience.id]))
+        self.assertEqual(record["delete_url"], reverse("main:delete_experience", args=[experience.id]))
+        self.assertTrue(record["can_edit"])
+        self.assertTrue(record["can_delete"])
 
 
 class ExperienceJsonTest(TestCase):
@@ -481,7 +483,7 @@ class ExperienceJsonTest(TestCase):
             [str(first_id), str(second_id)],
         )
 
-    def test_experience_page_renders_after_json_deserialization(self):
+    def test_experience_page_shell_and_ajax_data_preserve_owner_actions(self):
         experience = self.make_experience("Deserialized Experience", 1)
         owner = get_user_model().objects.create_superuser(
             username="experience_json_owner", password="A-strong-test-password-2026"
@@ -492,21 +494,12 @@ class ExperienceJsonTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "experience.html")
-        self.assertContains(response, experience.title)
-        self.assertEqual(
-            [item.id for item in response.context["experience_list"]],
-            [experience.id],
-        )
-        self.assertContains(
-            response,
-            f'href="{reverse("main:update_experience", args=[experience.id])}"',
-            html=False,
-        )
-        self.assertContains(
-            response,
-            f'action="{reverse("main:delete_experience", args=[experience.id])}"',
-            html=False,
-        )
+        self.assertNotContains(response, experience.title)
+        self.assertContains(response, 'id="experience-list"')
+        record = self.client.get(reverse("main:get_experiences_ajax")).json()["experiences"][0]
+        self.assertEqual(record["pk"], str(experience.id))
+        self.assertEqual(record["edit_url"], reverse("main:update_experience", args=[experience.id]))
+        self.assertEqual(record["delete_url"], reverse("main:delete_experience", args=[experience.id]))
 
 
 class AwardsPageTest(TestCase):
@@ -895,10 +888,12 @@ class PortfolioAuthorizationTest(TestCase):
         self.client.force_login(editor)
 
         experience_response = self.client.get(reverse("main:show_experience"))
-        self.assertTrue(experience_response.context["is_editor"])
-        self.assertContains(experience_response, f'href="{self.write_routes[1]}"')
+        self.assertContains(experience_response, 'id="experience-csrf-token"')
+        ajax_record = self.client.get(reverse("main:get_experiences_ajax")).json()["experiences"][0]
+        self.assertTrue(ajax_record["can_edit"])
+        self.assertFalse(ajax_record["can_delete"])
+        self.assertEqual(ajax_record["edit_url"], self.write_routes[1])
         self.assertNotContains(experience_response, f'href="{self.write_routes[0]}"')
-        self.assertNotContains(experience_response, f'action="{self.write_routes[2]}"')
         self.assertEqual(self.client.get(self.write_routes[1]).status_code, 200)
 
         response = self.client.post(
@@ -964,6 +959,7 @@ class PortfolioAuthorizationTest(TestCase):
         for url in (
             reverse("main:show_main"),
             reverse("main:show_experience"),
+            reverse("main:get_experiences_ajax"),
             reverse("main:show_awards"),
             reverse("main:get_experiences_json"),
             reverse("main:show_json"),
@@ -989,8 +985,6 @@ class PortfolioAuthorizationTest(TestCase):
                 award_response = self.client.get(reverse("main:show_awards"))
                 controls = (
                     (experience_response, f'href="{self.write_routes[0]}"'),
-                    (experience_response, f'href="{self.write_routes[1]}"'),
-                    (experience_response, f'action="{self.write_routes[2]}"'),
                     (award_response, f'href="{self.write_routes[3]}"'),
                     (award_response, f'action="{self.write_routes[4]}"'),
                 )
@@ -999,6 +993,77 @@ class PortfolioAuthorizationTest(TestCase):
                         self.assertContains(response, control)
                     else:
                         self.assertNotContains(response, control)
+                ajax_record = self.client.get(reverse("main:get_experiences_ajax")).json()["experiences"][0]
+                self.assertEqual(ajax_record["can_edit"], user == owner)
+                self.assertEqual(ajax_record["can_delete"], user == owner)
+
+
+class ExperienceAjaxTest(TestCase):
+    def setUp(self):
+        self.first = Experience.objects.create(
+            id=uuid.UUID(int=1), title="First", description="One\n\nTwo",
+            organization="Example", start_year=2026, start_month=1,
+            display_order=1,
+        )
+        self.second = Experience.objects.create(
+            id=uuid.UUID(int=2), title="Second", description="Later", display_order=2,
+        )
+        self.url = reverse("main:get_experiences_ajax")
+
+    def test_guest_receives_ordered_display_data_without_user_details(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/json")
+        payload = response.json()
+        self.assertFalse(payload["is_authenticated"])
+        records = payload["experiences"]
+        self.assertEqual([item["pk"] for item in records], [str(self.first.pk), str(self.second.pk)])
+        self.assertEqual(records[0]["description_paragraphs"], ["One", "Two"])
+        self.assertEqual(records[0]["start_period"], {"iso": "2026-01", "label": "Jan 2026"})
+        for record in records:
+            self.assertEqual(record["star_count"], 0)
+            self.assertFalse(record["is_starred"])
+            self.assertFalse(record["can_edit"])
+            self.assertFalse(record["can_delete"])
+            self.assertIsNone(record["star_url"])
+            self.assertIsNone(record["edit_url"])
+            self.assertIsNone(record["delete_url"])
+
+    def test_star_state_is_private_to_current_user(self):
+        viewer = get_user_model().objects.create_user(username="viewer", email="viewer@example.com")
+        other = get_user_model().objects.create_user(username="other", email="other@example.com")
+        self.first.starred_by.add(viewer, other)
+        self.second.starred_by.add(other)
+        self.client.force_login(viewer)
+        payload = self.client.get(self.url).json()
+        self.assertTrue(payload["is_authenticated"])
+        first, second = payload["experiences"]
+        self.assertEqual((first["star_count"], second["star_count"]), (2, 1))
+        self.assertTrue(first["is_starred"])
+        self.assertFalse(second["is_starred"])
+        self.assertEqual(first["star_url"], reverse("main:toggle_experience_star", args=[self.first.pk]))
+        self.assertFalse(first["can_edit"])
+        self.assertFalse(first["can_delete"])
+        response_text = self.client.get(self.url).content.decode()
+        self.assertNotIn("viewer@example.com", response_text)
+        self.assertNotIn("other@example.com", response_text)
+        self.assertNotIn('"starred_by"', response_text)
+
+    def test_editor_and_superuser_receive_only_their_allowed_actions(self):
+        editor = get_user_model().objects.create_user(username="editor")
+        editor.groups.add(Group.objects.create(name="Editor"))
+        owner = get_user_model().objects.create_superuser(username="owner", password="test-password")
+        for user, may_delete in ((editor, False), (owner, True)):
+            with self.subTest(user=user):
+                self.client.force_login(user)
+                record = self.client.get(self.url).json()["experiences"][0]
+                self.assertTrue(record["can_edit"])
+                self.assertEqual(record["can_delete"], may_delete)
+                self.assertEqual(record["edit_url"], reverse("main:update_experience", args=[self.first.pk]))
+                self.assertEqual(
+                    record["delete_url"],
+                    reverse("main:delete_experience", args=[self.first.pk]) if may_delete else None,
+                )
 
 
 class ExperienceStarTest(TestCase):
@@ -1052,7 +1117,7 @@ class ExperienceStarTest(TestCase):
         client.force_login(user)
 
         page = client.get(reverse("main:show_experience"))
-        self.assertContains(page, f'action="{self.star_url}"')
+        self.assertContains(page, 'id="experience-csrf-token"')
         self.assertIn("csrftoken", client.cookies)
 
         self.assertEqual(client.post(self.star_url).status_code, 403)
@@ -1074,9 +1139,9 @@ class ExperienceStarTest(TestCase):
 
         self.assertEqual(self.experience.starred_by.count(), 2)
         self.client.force_login(visitor)
-        response = self.client.get(reverse("main:show_experience"))
-        self.assertContains(response, "★ 2 stars")
-        self.assertEqual(response.context["experience_list"][0].star_count, 2)
+        record = self.client.get(reverse("main:get_experiences_ajax")).json()["experiences"][0]
+        self.assertEqual(record["star_count"], 2)
+        self.assertTrue(record["is_starred"])
 
     def test_anonymous_page_shows_count_without_star_or_crud_forms(self):
         user = get_user_model().objects.create_user(username="stargazer")
@@ -1084,8 +1149,11 @@ class ExperienceStarTest(TestCase):
 
         response = self.client.get(reverse("main:show_experience"))
 
-        self.assertContains(response, self.experience.title)
-        self.assertContains(response, "★ 1 star")
+        self.assertNotContains(response, self.experience.title)
+        record = self.client.get(reverse("main:get_experiences_ajax")).json()["experiences"][0]
+        self.assertEqual(record["star_count"], 1)
+        self.assertFalse(record["is_starred"])
+        self.assertIsNone(record["star_url"])
         self.assertNotContains(response, f'action="{self.star_url}"')
         self.assertNotContains(response, 'name="csrfmiddlewaretoken"')
         self.assertNotContains(response, "Add Experience")
@@ -1102,31 +1170,32 @@ class ExperienceStarTest(TestCase):
 
         response = self.client.get(reverse("main:show_experience"))
 
-        by_id = {item.pk: item for item in response.context["experience_list"]}
-        self.assertEqual(by_id[self.experience.pk].star_count, 2)
-        self.assertTrue(by_id[self.experience.pk].is_starred_by_user)
-        self.assertEqual(by_id[second_experience.pk].star_count, 0)
-        self.assertFalse(by_id[second_experience.pk].is_starred_by_user)
-        self.assertContains(response, f'action="{self.star_url}"')
-        self.assertContains(response, "csrfmiddlewaretoken")
-        self.assertContains(response, f'aria-label="Unstar {self.experience.title}"')
-        self.assertContains(response, f'aria-label="Star {second_experience.title}"')
-        self.assertContains(response, "★ 2 stars")
-        self.assertContains(response, "★ 0 stars")
+        by_id = {
+            item["pk"]: item
+            for item in self.client.get(reverse("main:get_experiences_ajax")).json()["experiences"]
+        }
+        self.assertEqual(by_id[str(self.experience.pk)]["star_count"], 2)
+        self.assertTrue(by_id[str(self.experience.pk)]["is_starred"])
+        self.assertEqual(by_id[str(second_experience.pk)]["star_count"], 0)
+        self.assertFalse(by_id[str(second_experience.pk)]["is_starred"])
+        self.assertEqual(by_id[str(self.experience.pk)]["star_url"], self.star_url)
+        self.assertContains(response, 'id="experience-csrf-token"')
         self.assertNotContains(response, "Add Experience")
-        self.assertNotContains(response, f'href="{reverse("main:update_experience", args=[self.experience.pk])}"')
+        self.assertFalse(by_id[str(self.experience.pk)]["can_edit"])
 
         owner = get_user_model().objects.create_superuser(
             username="portfolio_owner", password="A-strong-test-password-2026"
         )
         self.client.force_login(owner)
         owner_response = self.client.get(reverse("main:show_experience"))
-        self.assertContains(owner_response, f'action="{self.star_url}"')
         self.assertContains(owner_response, "Add Experience")
-        self.assertContains(
-            owner_response,
-            f'href="{reverse("main:update_experience", args=[self.experience.pk])}"',
+        owner_record = next(
+            item for item in self.client.get(reverse("main:get_experiences_ajax")).json()["experiences"]
+            if item["pk"] == str(self.experience.pk)
         )
+        self.assertEqual(owner_record["star_url"], self.star_url)
+        self.assertTrue(owner_record["can_edit"])
+        self.assertTrue(owner_record["can_delete"])
 
     def test_public_json_keeps_experience_fields_without_user_data(self):
         user = get_user_model().objects.create_user(
