@@ -698,6 +698,31 @@ textarea.award-form-control { resize: vertical; }
 
 .experience-item-actions { margin-top: 1.25rem; }
 
+.experience-search {
+    margin-bottom: 2rem;
+}
+
+.experience-search label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.experience-search-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.experience-search-controls input {
+    flex: 1 1 16rem;
+}
+
+.experience-search-controls .award-action {
+    margin-top: 0;
+}
+
 .experience-state {
     padding: 2rem 0;
     border-top: 1px solid var(--line);

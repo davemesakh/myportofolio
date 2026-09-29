@@ -1003,12 +1003,66 @@ class ExperienceAjaxTest(TestCase):
         self.first = Experience.objects.create(
             id=uuid.UUID(int=1), title="First", description="One\n\nTwo",
             organization="Example", start_year=2026, start_month=1,
-            display_order=1,
+            category="part-time", display_order=1,
         )
         self.second = Experience.objects.create(
-            id=uuid.UUID(int=2), title="Second", description="Later", display_order=2,
+            id=uuid.UUID(int=2), title="Second", description="Later",
+            category="research", display_order=2,
         )
         self.url = reverse("main:get_experiences_ajax")
+
+    def test_search_form_is_present_in_page_shell(self):
+        response = self.client.get(reverse("main:show_experience"))
+        self.assertContains(response, 'id="experience-search-form"')
+        self.assertContains(response, 'id="experience-search-input"')
+        self.assertContains(response, 'name="title"')
+
+    def test_title_search_filters_case_insensitively_and_preserves_order(self):
+        another_first = Experience.objects.create(
+            id=uuid.UUID(int=3), title="First Follow-up", description="More", display_order=1,
+        )
+
+        def ids_for(query):
+            return [item["pk"] for item in self.client.get(self.url, {"title": query}).json()["experiences"]]
+
+        self.assertEqual(ids_for(""), [str(self.first.pk), str(another_first.pk), str(self.second.pk)])
+        self.assertEqual(ids_for("   "), [str(self.first.pk), str(another_first.pk), str(self.second.pk)])
+        self.assertEqual(ids_for("First"), [str(self.first.pk), str(another_first.pk)])
+        self.assertEqual(ids_for("irs"), [str(self.first.pk), str(another_first.pk)])
+        self.assertEqual(ids_for("fIrSt"), [str(self.first.pk), str(another_first.pk)])
+        self.assertEqual(ids_for("  first  "), [str(self.first.pk), str(another_first.pk)])
+        self.assertEqual(ids_for("missing"), [])
+
+    def test_search_matches_organization_and_category_without_changing_order(self):
+        another = Experience.objects.create(
+            id=uuid.UUID(int=3), title="Third", description="More",
+            organization="Example Studio", category="part-time", display_order=1,
+        )
+
+        def ids_for(query):
+            return [item["pk"] for item in self.client.get(self.url, {"title": query}).json()["experiences"]]
+
+        expected = [str(self.first.pk), str(another.pk)]
+        self.assertEqual(ids_for("example"), expected)
+        self.assertEqual(ids_for("EXAMP"), expected)
+        self.assertEqual(ids_for("part"), expected)
+        self.assertEqual(ids_for("PART-TIME"), expected)
+        self.assertEqual(ids_for("SEARCH"), [str(self.second.pk)])
+
+    def test_filtered_result_preserves_star_and_role_data(self):
+        editor = get_user_model().objects.create_user(username="search_editor")
+        editor.groups.add(Group.objects.create(name="Editor"))
+        self.first.starred_by.add(editor)
+        self.client.force_login(editor)
+        payload = self.client.get(self.url, {"title": "first"}).json()
+        self.assertTrue(payload["is_authenticated"])
+        self.assertEqual(len(payload["experiences"]), 1)
+        record = payload["experiences"][0]
+        self.assertEqual(record["star_count"], 1)
+        self.assertTrue(record["is_starred"])
+        self.assertTrue(record["can_edit"])
+        self.assertFalse(record["can_delete"])
+        self.assertEqual(record["edit_url"], reverse("main:update_experience", args=[self.first.pk]))
 
     def test_guest_receives_ordered_display_data_without_user_details(self):
         response = self.client.get(self.url)

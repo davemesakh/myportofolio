@@ -8,7 +8,7 @@ from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.contrib.staticfiles import finders
 from django.core import serializers
 from django.core.exceptions import PermissionDenied
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.templatetags.static import static
@@ -125,9 +125,16 @@ def show_experience(request):
 
 
 def get_experiences_ajax(request):
+    query = request.GET.get("title", "").strip()
+    queryset = Experience.objects.all()
+    if query:
+        queryset = queryset.filter(
+            Q(title__icontains=query)
+            | Q(organization__icontains=query)
+            | Q(category__icontains=query)
+        )
     experiences = list(
-        Experience.objects.annotate(star_count=Count("starred_by"))
-        .order_by("display_order", "id")
+        queryset.annotate(star_count=Count("starred_by")).order_by("display_order", "id")
     )
     authenticated = request.user.is_authenticated
     can_edit = authenticated and (request.user.is_superuser or is_editor(request.user))

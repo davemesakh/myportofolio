@@ -14,6 +14,15 @@
             {% endif %}
         </header>
 
+        <form id="experience-search-form" class="experience-search" role="search">
+            <label for="experience-search-input">Search experiences</label>
+            <div class="experience-search-controls">
+                <input id="experience-search-input" class="award-form-control" type="search"
+                       name="title" placeholder="Search experiences..." autocomplete="off">
+                <button class="award-action" type="submit">Search</button>
+            </div>
+        </form>
+
         {% if user.is_authenticated %}
         <input id="experience-csrf-token" type="hidden" value="{{ csrf_token }}">
         {% endif %}

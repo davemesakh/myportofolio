@@ -112,7 +112,11 @@ function buildExperienceCardElement(item, isAuthenticated, csrfToken) {
     return card;
 }
 
-async function fetchExperiences() {
+const SEARCH_DEBOUNCE_DELAY = 300;
+let searchDebounceTimer;
+let experiencesAbortController;
+
+async function fetchExperiences(searchQuery = "") {
     const grid = document.getElementById("experience-list");
     const loading = document.getElementById("experience-loading");
     const empty = document.getElementById("experience-empty");
@@ -124,11 +128,19 @@ async function fetchExperiences() {
     empty.hidden = true;
     error.hidden = true;
 
+    if (experiencesAbortController) experiencesAbortController.abort();
+    const controller = new AbortController();
+    experiencesAbortController = controller;
+    const url = searchQuery
+        ? `${grid.dataset.url}?title=${encodeURIComponent(searchQuery)}`
+        : grid.dataset.url;
+
     try {
-        const response = await fetch(grid.dataset.url);
+        const response = await fetch(url, { signal: controller.signal });
         if (!response.ok) throw new Error(`Experience request failed: ${response.status}`);
         const payload = await response.json();
         if (!Array.isArray(payload.experiences)) throw new Error("Invalid Experience response");
+        if (controller !== experiencesAbortController) return;
 
         grid.replaceChildren();
         const csrfToken = document.getElementById("experience-csrf-token")?.value;
@@ -136,13 +148,39 @@ async function fetchExperiences() {
             grid.appendChild(buildExperienceCardElement(item, payload.is_authenticated, csrfToken));
         }
         grid.hidden = payload.experiences.length === 0;
+        empty.textContent = searchQuery
+            ? "No experiences match your search."
+            : "Belum ada pengalaman yang ditambahkan.";
         empty.hidden = payload.experiences.length !== 0;
     } catch (fetchError) {
+        if (fetchError.name === "AbortError" || controller !== experiencesAbortController) return;
         grid.replaceChildren();
         error.hidden = false;
     } finally {
-        loading.hidden = true;
+        if (controller === experiencesAbortController) {
+            loading.hidden = true;
+            experiencesAbortController = undefined;
+        }
     }
 }
 
-fetchExperiences();
+const searchForm = document.getElementById("experience-search-form");
+const searchInput = document.getElementById("experience-search-input");
+
+function searchExperiences() {
+    if (searchInput) fetchExperiences(searchInput.value.trim());
+}
+
+if (searchForm && searchInput) {
+    searchInput.addEventListener("input", () => {
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = setTimeout(searchExperiences, SEARCH_DEBOUNCE_DELAY);
+    });
+    searchForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        clearTimeout(searchDebounceTimer);
+        searchExperiences();
+    });
+}
+
+fetchExperiences("");
