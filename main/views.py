@@ -11,12 +11,12 @@ from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.templatetags.static import static
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from main.forms import AwardForm, ExperienceForm
+from main.image_utils import resolve_experience_logo_url
 from main.models import Award, Experience
 
 
@@ -161,7 +161,7 @@ def get_experiences_ajax(request):
             "thumbnail": experience.thumbnail,
             "organization": experience.organization,
             "logo_static_path": experience.logo_static_path,
-            "logo_url": static(experience.logo_static_path) if experience.logo_static_path else None,
+            "logo_url": resolve_experience_logo_url(experience.logo_static_path),
             "logo_alt": experience.logo_alt,
             "start_year": experience.start_year,
             "start_month": experience.start_month,

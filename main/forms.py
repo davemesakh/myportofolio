@@ -1,5 +1,6 @@
 from django import forms
 
+from main.image_utils import validate_experience_logo_source
 from main.models import Award, Experience
 
 
@@ -24,7 +25,7 @@ class ExperienceForm(forms.ModelForm):
             "title": forms.TextInput(attrs={"placeholder": "e.g. Teaching Assistant"}),
             "description": forms.Textarea(attrs={"rows": 6, "placeholder": "Describe your role and contributions."}),
             "organization": forms.TextInput(attrs={"placeholder": "e.g. Universitas Indonesia"}),
-            "logo_static_path": forms.TextInput(attrs={"placeholder": "e.g. img/organization-logo.png"}),
+            "logo_static_path": forms.TextInput(attrs={"placeholder": "img/logo.png or https://..."}),
             "logo_alt": forms.TextInput(attrs={"placeholder": "Describe the organization logo."}),
             "start_year": forms.NumberInput(attrs={"min": 1, "placeholder": "e.g. 2026"}),
             "start_month": forms.NumberInput(attrs={"min": 1, "max": 12, "placeholder": "1-12"}),
@@ -32,11 +33,20 @@ class ExperienceForm(forms.ModelForm):
             "end_month": forms.NumberInput(attrs={"min": 1, "max": 12, "placeholder": "1-12"}),
             "display_order": forms.NumberInput(attrs={"min": 0, "placeholder": "e.g. 0"}),
         }
+        labels = {"logo_static_path": "Logo image path or URL"}
+        help_texts = {
+            "logo_static_path": "Use a local static path, an HTTPS image URL, or a public Google Drive share link."
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             field.widget.attrs["class"] = "award-form-control"
+
+    def clean_logo_static_path(self):
+        value = self.cleaned_data["logo_static_path"]
+        validate_experience_logo_source(value)
+        return value
 
     def clean(self):
         cleaned_data = super().clean()

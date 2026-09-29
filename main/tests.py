@@ -16,7 +16,47 @@ from django.urls import reverse
 from django.utils import timezone
 
 from main.forms import ExperienceForm
+from main.image_utils import resolve_experience_logo_url, validate_experience_logo_source
 from main.models import Award, Experience
+
+
+class ExperienceLogoSourceTest(TestCase):
+    def test_resolver_supports_empty_local_https_and_drive_sources(self):
+        cases = (
+            (None, ""),
+            ("", ""),
+            ("img/betis-logo.png", "/static/img/betis-logo.png"),
+            ("https://example.com/logo.png", "https://example.com/logo.png"),
+            (
+                "https://drive.google.com/file/d/FILE_ID/view?usp=sharing",
+                "https://drive.google.com/thumbnail?id=FILE_ID&sz=w512",
+            ),
+        )
+        for source, expected in cases:
+            with self.subTest(source=source):
+                self.assertEqual(resolve_experience_logo_url(source), expected)
+
+    def test_invalid_sources_are_rejected_and_not_rendered(self):
+        sources = (
+            "http://example.com/logo.png",
+            "javascript:alert(1)",
+            "data:image/png;base64,AAAA",
+            "file:///logo.png",
+            "blob:https://example.com/image",
+            "https:/example.com/logo.png",
+            "//example.com/logo.png",
+            "../img/logo.png",
+            "img/../logo.png",
+            "https://drive.google.com/file/d/FILE_ID/edit",
+            "https://drive.google.com/file/d//view",
+            "https://drive.google.com/file/d/FILE_ID/view/extra",
+            "https://drive.google.com:443/file/d/FILE_ID/view",
+        )
+        for source in sources:
+            with self.subTest(source=source):
+                with self.assertRaises(ValidationError):
+                    validate_experience_logo_source(source)
+                self.assertEqual(resolve_experience_logo_url(source), "")
 
 
 class MainTest(TestCase):
@@ -276,6 +316,49 @@ class ExperienceFormTest(TestCase):
                 "display_order",
             ],
         )
+
+    def test_logo_field_ux_and_source_validation(self):
+        field = ExperienceForm().fields["logo_static_path"]
+        self.assertEqual(field.label, "Logo image path or URL")
+        self.assertEqual(field.widget.attrs["placeholder"], "img/logo.png or https://...")
+        self.assertIn("Google Drive", field.help_text)
+        for source in ("", "img/logo.png", "https://example.com/logo.png",
+                       "https://drive.google.com/file/d/FILE_ID/view?usp=sharing"):
+            with self.subTest(source=source):
+                form = ExperienceForm(data=self.valid_data | {"logo_static_path": source})
+                self.assertTrue(form.is_valid(), form.errors)
+                self.assertEqual(form.cleaned_data["logo_static_path"], source)
+        for source in ("http://example.com/logo.png", "javascript:alert(1)",
+                       "data:image/png;base64,AAAA", "https://drive.google.com/file/d/FILE_ID/edit"):
+            with self.subTest(source=source):
+                form = ExperienceForm(data=self.valid_data | {"logo_static_path": source})
+                self.assertFalse(form.is_valid())
+                self.assertIn("logo_static_path", form.errors)
+
+    def test_normal_create_preserves_external_input_and_rejects_unsafe_source(self):
+        source = "https://example.com/logo.png"
+        response = self.client.post(reverse("main:create_experience"),
+                                    self.valid_data | {"logo_static_path": source})
+        self.assertRedirects(response, reverse("main:show_experience"))
+        self.assertEqual(Experience.objects.get().logo_static_path, source)
+        response = self.client.post(reverse("main:create_experience"),
+                                    self.valid_data | {"title": "Unsafe", "logo_static_path": "http://example.com/logo.png"})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Enter a local static path")
+        self.assertEqual(Experience.objects.count(), 1)
+
+    def test_update_preserves_drive_input_and_rejects_unsafe_source(self):
+        experience = self.make_experience()
+        source = "https://drive.google.com/file/d/FILE_ID/view?usp=sharing"
+        url = reverse("main:update_experience", args=[experience.pk])
+        response = self.client.post(url, self.valid_data | {"logo_static_path": source})
+        self.assertRedirects(response, reverse("main:show_experience"))
+        experience.refresh_from_db()
+        self.assertEqual(experience.logo_static_path, source)
+        response = self.client.post(url, self.valid_data | {"logo_static_path": "javascript:alert(1)"})
+        self.assertEqual(response.status_code, 200)
+        experience.refresh_from_db()
+        self.assertEqual(experience.logo_static_path, source)
 
     def test_get_create_experience_page(self):
         response = self.client.get(reverse("main:create_experience"))
@@ -1114,6 +1197,35 @@ class ExperienceAjaxCreateTest(TestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(Experience.objects.count(), 1)
 
+    def test_ajax_create_preserves_original_external_and_drive_inputs(self):
+        owner = get_user_model().objects.create_superuser(
+            username="ajax_logo_owner", password="A-strong-test-password-2026"
+        )
+        self.client.force_login(owner)
+        sources = (
+            "https://example.com/logo.png",
+            "https://drive.google.com/file/d/FILE_ID/view?usp=sharing",
+        )
+        for number, source in enumerate(sources):
+            with self.subTest(source=source):
+                response = self.client.post(
+                    self.url, self.valid_data | {"title": f"Logo {number}", "logo_static_path": source}
+                )
+                self.assertEqual(response.status_code, 201)
+                self.assertEqual(Experience.objects.get(pk=response.json()["pk"]).logo_static_path, source)
+
+    def test_ajax_create_rejects_unsafe_logo_source(self):
+        owner = get_user_model().objects.create_superuser(
+            username="ajax_invalid_logo_owner", password="A-strong-test-password-2026"
+        )
+        self.client.force_login(owner)
+        response = self.client.post(
+            self.url, self.valid_data | {"logo_static_path": "http://example.com/logo.png"}
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("logo_static_path", response.json()["errors"])
+        self.assertFalse(Experience.objects.exists())
+
 
 class ExperienceAjaxTest(TestCase):
     def setUp(self):
@@ -1199,6 +1311,30 @@ class ExperienceAjaxTest(TestCase):
             self.assertIsNone(record["star_url"])
             self.assertIsNone(record["edit_url"])
             self.assertIsNone(record["delete_url"])
+
+    def test_logo_resolution_preserves_ajax_response_shape_and_raw_source(self):
+        self.first.logo_static_path = "img/betis-logo.png"
+        self.first.save(update_fields=["logo_static_path"])
+        baseline = self.client.get(self.url).json()["experiences"][0]
+        self.assertEqual(baseline["logo_url"], "/static/img/betis-logo.png")
+        self.assertEqual(baseline["logo_static_path"], "img/betis-logo.png")
+        expected_keys = set(baseline)
+
+        for source, expected_url in (
+            ("https://example.com/logo.png", "https://example.com/logo.png"),
+            ("https://drive.google.com/file/d/FILE_ID/view?usp=sharing",
+             "https://drive.google.com/thumbnail?id=FILE_ID&sz=w512"),
+        ):
+            with self.subTest(source=source):
+                self.first.logo_static_path = source
+                self.first.save(update_fields=["logo_static_path"])
+                record = self.client.get(self.url).json()["experiences"][0]
+                self.assertEqual(set(record), expected_keys)
+                self.assertEqual(record["logo_static_path"], source)
+                self.assertEqual(record["logo_url"], expected_url)
+                legacy = json.loads(self.client.get(reverse("main:get_experiences_json")).content)[0]
+                self.assertEqual(legacy["fields"]["logo_static_path"], source)
+                self.assertNotIn("logo_url", legacy["fields"])
 
     def test_star_state_is_private_to_current_user(self):
         viewer = get_user_model().objects.create_user(username="viewer", email="viewer@example.com")

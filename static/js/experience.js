@@ -30,7 +30,8 @@ function buildExperienceCardElement(item, isAuthenticated, csrfToken) {
     if (item.logo_url) {
         try {
             const logoUrl = new URL(item.logo_url, window.location.href);
-            if (logoUrl.origin === window.location.origin && /^https?:$/.test(logoUrl.protocol)) {
+            if (logoUrl.protocol === "https:" ||
+                (logoUrl.protocol === "http:" && logoUrl.origin === window.location.origin)) {
                 const logo = experienceElement("img", "experience-logo");
                 logo.src = logoUrl.href;
                 logo.alt = item.logo_alt || "";
