@@ -1021,6 +1021,10 @@ class ExperienceModalTest(TestCase):
                     self.assertContains(response, 'popover="auto"')
                     self.assertContains(response, 'role="dialog"')
                     self.assertContains(response, 'method="post"')
+                    self.assertContains(response, 'id="add-experience-form"')
+                    self.assertContains(
+                        response, f'data-ajax-url="{reverse("main:create_experience_ajax")}"'
+                    )
                     self.assertContains(
                         response, f'action="{reverse("main:create_experience")}"'
                     )
@@ -1033,6 +1037,82 @@ class ExperienceModalTest(TestCase):
                     self.assertNotContains(response, 'popovertarget="add-experience-modal"')
                     self.assertNotContains(response, 'id="add-experience-modal"')
                     self.assertNotContains(response, f'action="{reverse("main:create_experience")}"')
+
+
+class ExperienceAjaxCreateTest(TestCase):
+    def setUp(self):
+        self.url = reverse("main:create_experience_ajax")
+        self.valid_data = ExperienceFormTest.valid_data | {"title": "AJAX Experience"}
+
+    def test_get_is_not_allowed(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 405)
+        self.assertFalse(Experience.objects.exists())
+
+    def test_guest_regular_user_and_editor_receive_json_403_without_creation(self):
+        regular = get_user_model().objects.create_user(username="ajax_regular")
+        editor = get_user_model().objects.create_user(username="ajax_editor")
+        editor.groups.add(Group.objects.create(name="Editor"))
+        for user in (None, regular, editor):
+            with self.subTest(user=user):
+                self.client.logout()
+                if user is not None:
+                    self.client.force_login(user)
+                response = self.client.post(self.url, self.valid_data)
+                self.assertEqual(response.status_code, 403)
+                self.assertEqual(response["Content-Type"], "application/json")
+                self.assertIn("message", response.json())
+                self.assertFalse(Experience.objects.exists())
+
+    def test_superuser_valid_post_creates_experience_and_returns_201(self):
+        owner = get_user_model().objects.create_superuser(
+            username="ajax_owner", password="A-strong-test-password-2026"
+        )
+        self.client.force_login(owner)
+        response = self.client.post(self.url, self.valid_data)
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response["Content-Type"], "application/json")
+        result = response.json()
+        self.assertEqual(result["message"], "Experience successfully added!")
+        experience = Experience.objects.get(pk=uuid.UUID(result["pk"]))
+        self.assertEqual(experience.title, self.valid_data["title"])
+        self.assertEqual(experience.organization, self.valid_data["organization"])
+        self.assertEqual(Experience.objects.count(), 1)
+
+    def test_superuser_invalid_post_returns_form_errors_without_creation(self):
+        owner = get_user_model().objects.create_superuser(
+            username="ajax_owner", password="A-strong-test-password-2026"
+        )
+        self.client.force_login(owner)
+        invalid_data = self.valid_data | {
+            "start_year": 2026, "start_month": 8,
+            "end_year": 2026, "end_month": 6,
+            "is_current": "True",
+        }
+        response = self.client.post(self.url, invalid_data)
+        self.assertEqual(response.status_code, 400)
+        errors = response.json()["errors"]
+        self.assertIn("is_current", errors)
+        self.assertIn("__all__", errors)
+        self.assertIn("message", errors["is_current"][0])
+        self.assertFalse(Experience.objects.exists())
+
+    def test_csrf_token_is_required_for_ajax_create(self):
+        owner = get_user_model().objects.create_superuser(
+            username="ajax_csrf_owner", password="A-strong-test-password-2026"
+        )
+        client = Client(enforce_csrf_checks=True)
+        client.force_login(owner)
+        self.assertEqual(client.post(self.url, self.valid_data).status_code, 403)
+        self.assertFalse(Experience.objects.exists())
+        page = client.get(reverse("main:show_experience"))
+        self.assertContains(page, 'id="add-experience-form"')
+        self.assertIn("csrftoken", client.cookies)
+        response = client.post(
+            self.url, self.valid_data, HTTP_X_CSRFTOKEN=client.cookies["csrftoken"].value,
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(Experience.objects.count(), 1)
 
 
 class ExperienceAjaxTest(TestCase):

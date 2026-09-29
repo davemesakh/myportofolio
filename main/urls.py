@@ -3,6 +3,7 @@ from django.urls import path
 from main.views import (
     create_award,
     create_experience,
+    create_experience_ajax,
     delete_award,
     delete_experience,
     get_experiences_ajax,
@@ -28,6 +29,7 @@ urlpatterns = [
     path("logout/", logout_user, name="logout"),
     path("experience/", show_experience, name="show_experience"),
     path("experience/add/", create_experience, name="create_experience"),
+    path("experience/add-ajax/", create_experience_ajax, name="create_experience_ajax"),
     path("experience/json/", get_experiences_json, name="get_experiences_json"),
     path("experience/ajax/", get_experiences_ajax, name="get_experiences_ajax"),
     path("experience/<uuid:experience_id>/edit/", update_experience, name="update_experience"),

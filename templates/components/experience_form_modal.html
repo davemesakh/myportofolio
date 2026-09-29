@@ -10,7 +10,9 @@
                 popovertargetaction="hide" aria-label="Close Add Experience form">&times;</button>
     </header>
 
-    <form class="award-form" method="post" action="{% url 'main:create_experience' %}" novalidate>
+    <form id="add-experience-form" class="award-form" method="post"
+          action="{% url 'main:create_experience' %}"
+          data-ajax-url="{% url 'main:create_experience_ajax' %}" novalidate>
         {% csrf_token %}
         {% if experience_form.non_field_errors %}
         <div class="form-errors" role="alert">{{ experience_form.non_field_errors }}</div>

@@ -226,6 +226,22 @@ def create_experience(request):
     return render(request, "experience_form.html", context)
 
 
+@require_POST
+def create_experience_ajax(request):
+    if not request.user.is_superuser:
+        return JsonResponse({"message": "You do not have permission to add an Experience."}, status=403)
+
+    form = ExperienceForm(request.POST)
+    if not form.is_valid():
+        return JsonResponse({"errors": form.errors.get_json_data()}, status=400)
+
+    experience = form.save()
+    return JsonResponse(
+        {"message": "Experience successfully added!", "pk": str(experience.pk)},
+        status=201,
+    )
+
+
 @login_required(login_url="main:login")
 @editor_or_superuser_required
 def update_experience(request, experience_id):

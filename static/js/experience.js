@@ -176,6 +176,66 @@ function closeExperienceModal() {
     if (modal?.matches(":popover-open")) modal.hidePopover();
 }
 
+function getCookie(name) {
+    const cookie = document.cookie.split("; ").find((part) => part.startsWith(`${name}=`));
+    return cookie ? decodeURIComponent(cookie.slice(name.length + 1)) : null;
+}
+
+function experienceErrorMessage(result, status) {
+    const errors = result?.errors;
+    if (errors && typeof errors === "object") {
+        const messages = Object.values(errors)
+            .flatMap((entries) => Array.isArray(entries) ? entries : [])
+            .map((entry) => entry?.message)
+            .filter(Boolean);
+        if (messages.length) return messages.join(" ");
+    }
+    return result?.message || `Request failed (HTTP ${status}).`;
+}
+
+async function addExperience(event) {
+    event.preventDefault();
+    const experienceForm = event.currentTarget;
+    const submitButton = experienceForm.querySelector('button[type="submit"]');
+    if (submitButton?.disabled) return;
+    if (submitButton) submitButton.disabled = true;
+
+    try {
+        const response = await fetch(experienceForm.dataset.ajaxUrl, {
+            method: "POST",
+            body: new FormData(experienceForm),
+            credentials: "same-origin",
+            headers: { "X-CSRFToken": getCookie("csrftoken") || "" },
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            showToast("Failed to add Experience", experienceErrorMessage(result, response.status), "error");
+            return;
+        }
+        if (response.status !== 201 || !result.pk) {
+            showToast(
+                "Failed to add Experience",
+                "Unexpected server response. Check the Experience list before trying again.",
+                "error"
+            );
+            return;
+        }
+
+        experienceForm.reset();
+        closeExperienceModal();
+        showToast("Success", result.message || "Experience successfully added!", "success");
+        fetchExperiences(searchInput?.value.trim() || "");
+    } catch (error) {
+        console.error("Could not add Experience:", error);
+        showToast("Failed to add Experience", "A network error occurred. Please try again.", "error");
+    } finally {
+        if (submitButton) submitButton.disabled = false;
+    }
+}
+
+const experienceForm = document.getElementById("add-experience-form");
+if (experienceForm) experienceForm.addEventListener("submit", addExperience);
+
 if (searchForm && searchInput) {
     searchInput.addEventListener("input", () => {
         clearTimeout(searchDebounceTimer);
