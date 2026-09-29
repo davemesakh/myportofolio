@@ -317,6 +317,39 @@ class ExperienceFormTest(TestCase):
             ],
         )
 
+    def test_title_and_description_strip_tags_without_losing_paragraphs(self):
+        form = ExperienceForm(data=self.valid_data | {
+            "title": "  Hello <b>World</b>  ",
+            "description": "  First <b>paragraph</b>\n\nSecond <script>alert(1)</script> paragraph  ",
+        })
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["title"], "Hello World")
+        self.assertEqual(
+            form.cleaned_data["description"],
+            "First paragraph\n\nSecond alert(1) paragraph",
+        )
+
+    def test_all_tag_title_and_description_are_rejected(self):
+        form = ExperienceForm(data=self.valid_data | {
+            "title": '<img src="x" onerror="alert(\'XSS!\')">',
+            "description": "  <img src='x'>  ",
+        })
+        self.assertFalse(form.is_valid())
+        self.assertIn("Title cannot contain only HTML tags.", form.errors["title"])
+        self.assertIn("Description cannot contain only HTML tags.", form.errors["description"])
+
+    def test_other_text_fields_and_logo_source_remain_unchanged(self):
+        source = "https://example.com/logo.png"
+        form = ExperienceForm(data=self.valid_data | {
+            "organization": "Example <b>Organization</b>",
+            "logo_alt": "<b>Organization</b> logo",
+            "logo_static_path": source,
+        })
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["organization"], "Example <b>Organization</b>")
+        self.assertEqual(form.cleaned_data["logo_alt"], "<b>Organization</b> logo")
+        self.assertEqual(form.cleaned_data["logo_static_path"], source)
+
     def test_logo_field_ux_and_source_validation(self):
         field = ExperienceForm().fields["logo_static_path"]
         self.assertEqual(field.label, "Logo image path or URL")
@@ -382,6 +415,24 @@ class ExperienceFormTest(TestCase):
         self.assertEqual(experience.end_month, self.valid_data["end_month"])
         self.assertFalse(experience.is_current)
         self.assertIsNone(experience.source_key)
+
+    def test_normal_create_stores_cleaned_text(self):
+        response = self.client.post(reverse("main:create_experience"), self.valid_data | {
+            "title": "Hello <b>World</b>",
+            "description": "First <b>paragraph</b>\n\nSecond paragraph",
+        })
+        self.assertRedirects(response, reverse("main:show_experience"))
+        experience = Experience.objects.get()
+        self.assertEqual(experience.title, "Hello World")
+        self.assertEqual(experience.description, "First paragraph\n\nSecond paragraph")
+
+    def test_normal_create_rejects_all_tag_title(self):
+        response = self.client.post(reverse("main:create_experience"), self.valid_data | {
+            "title": '<img src="x" onerror="alert(1)">',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Title cannot contain only HTML tags.")
+        self.assertFalse(Experience.objects.exists())
 
     def test_invalid_post_does_not_create_experience_and_shows_errors(self):
         invalid_data = self.valid_data | {
@@ -465,6 +516,17 @@ class ExperienceFormTest(TestCase):
         experience.refresh_from_db()
         self.assertEqual(experience.title, "Original Experience")
         self.assertEqual(experience.organization, "Original Organization")
+
+    def test_update_rejects_all_tag_title_and_preserves_existing_value(self):
+        experience = self.make_experience()
+        response = self.client.post(
+            reverse("main:update_experience", args=[experience.pk]),
+            self.valid_data | {"title": '<img src="x" onerror="alert(1)">'},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Title cannot contain only HTML tags.")
+        experience.refresh_from_db()
+        self.assertEqual(experience.title, "Original Experience")
 
     def test_delete_post_deletes_experience_and_redirects(self):
         experience = self.make_experience()
@@ -1178,6 +1240,21 @@ class ExperienceAjaxCreateTest(TestCase):
         self.assertIn("is_current", errors)
         self.assertIn("__all__", errors)
         self.assertIn("message", errors["is_current"][0])
+        self.assertFalse(Experience.objects.exists())
+
+    def test_ajax_create_rejects_all_tag_title_with_structured_error(self):
+        owner = get_user_model().objects.create_superuser(
+            username="ajax_xss_owner", password="A-strong-test-password-2026"
+        )
+        self.client.force_login(owner)
+        response = self.client.post(self.url, self.valid_data | {
+            "title": '<img src="x" onerror="alert(1)">',
+        })
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.json()["errors"]["title"][0]["message"],
+            "Title cannot contain only HTML tags.",
+        )
         self.assertFalse(Experience.objects.exists())
 
     def test_csrf_token_is_required_for_ajax_create(self):

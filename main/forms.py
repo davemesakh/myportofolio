@@ -1,4 +1,6 @@
 from django import forms
+from django.core.exceptions import ValidationError
+from django.utils.html import strip_tags
 
 from main.image_utils import validate_experience_logo_source
 from main.models import Award, Experience
@@ -42,6 +44,18 @@ class ExperienceForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             field.widget.attrs["class"] = "award-form-control"
+
+    def clean_title(self):
+        title = strip_tags(self.cleaned_data["title"]).strip()
+        if not title:
+            raise ValidationError("Title cannot contain only HTML tags.")
+        return title
+
+    def clean_description(self):
+        description = strip_tags(self.cleaned_data["description"]).strip()
+        if not description:
+            raise ValidationError("Description cannot contain only HTML tags.")
+        return description
 
     def clean_logo_static_path(self):
         value = self.cleaned_data["logo_static_path"]
