@@ -57,6 +57,12 @@ class ExperienceForm(forms.ModelForm):
             raise ValidationError("Description cannot contain only HTML tags.")
         return description
 
+    def clean_organization(self):
+        return strip_tags(self.cleaned_data["organization"]).strip()
+
+    def clean_logo_alt(self):
+        return strip_tags(self.cleaned_data["logo_alt"]).strip()
+
     def clean_logo_static_path(self):
         value = self.cleaned_data["logo_static_path"]
         validate_experience_logo_source(value)

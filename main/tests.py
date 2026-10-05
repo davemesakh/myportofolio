@@ -338,17 +338,36 @@ class ExperienceFormTest(TestCase):
         self.assertIn("Title cannot contain only HTML tags.", form.errors["title"])
         self.assertIn("Description cannot contain only HTML tags.", form.errors["description"])
 
-    def test_other_text_fields_and_logo_source_remain_unchanged(self):
+    def test_optional_text_fields_strip_tags_and_preserve_logo_source(self):
         source = "https://example.com/logo.png"
         form = ExperienceForm(data=self.valid_data | {
-            "organization": "Example <b>Organization</b>",
-            "logo_alt": "<b>Organization</b> logo",
+            "organization": "  <b>OpenAI</b>  ",
+            "logo_alt": "  <script>alert('x')</script>Company logo  ",
             "logo_static_path": source,
         })
         self.assertTrue(form.is_valid(), form.errors)
-        self.assertEqual(form.cleaned_data["organization"], "Example <b>Organization</b>")
-        self.assertEqual(form.cleaned_data["logo_alt"], "<b>Organization</b> logo")
+        self.assertEqual(form.cleaned_data["organization"], "OpenAI")
+        self.assertEqual(form.cleaned_data["logo_alt"], "alert('x')Company logo")
         self.assertEqual(form.cleaned_data["logo_static_path"], source)
+
+    def test_optional_text_fields_allow_empty_values_after_cleaning(self):
+        for value in ("", None, "   ", "<b></b>"):
+            with self.subTest(value=value):
+                form = ExperienceForm(data=self.valid_data | {
+                    "organization": value, "logo_alt": value,
+                })
+                self.assertTrue(form.is_valid(), form.errors)
+                self.assertEqual(form.cleaned_data["organization"], "")
+                self.assertEqual(form.cleaned_data["logo_alt"], "")
+
+    def test_optional_text_fields_preserve_punctuation(self):
+        text = 'Company & Partners: "Logo", owner\'s brand!'
+        form = ExperienceForm(data=self.valid_data | {
+            "organization": text, "logo_alt": text,
+        })
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["organization"], text)
+        self.assertEqual(form.cleaned_data["logo_alt"], text)
 
     def test_logo_field_ux_and_source_validation(self):
         field = ExperienceForm().fields["logo_static_path"]
@@ -1223,6 +1242,20 @@ class ExperienceAjaxCreateTest(TestCase):
         self.assertEqual(experience.title, self.valid_data["title"])
         self.assertEqual(experience.organization, self.valid_data["organization"])
         self.assertEqual(Experience.objects.count(), 1)
+
+    def test_ajax_create_stores_cleaned_optional_text_fields(self):
+        owner = get_user_model().objects.create_superuser(
+            username="ajax_text_owner", password="A-strong-test-password-2026"
+        )
+        self.client.force_login(owner)
+        response = self.client.post(self.url, self.valid_data | {
+            "organization": "  <b>OpenAI</b>  ",
+            "logo_alt": "  <em>Company logo</em>  ",
+        })
+        self.assertEqual(response.status_code, 201)
+        experience = Experience.objects.get(pk=response.json()["pk"])
+        self.assertEqual(experience.organization, "OpenAI")
+        self.assertEqual(experience.logo_alt, "Company logo")
 
     def test_superuser_invalid_post_returns_form_errors_without_creation(self):
         owner = get_user_model().objects.create_superuser(
