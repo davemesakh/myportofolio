@@ -59,7 +59,7 @@ class ExperienceSerializer(serializers.ModelSerializer):
         user = getattr(request, "user", None)
         if user is None or not user.is_authenticated:
             return False
-        return obj.starred_by.filter(pk=user.pk).exists()
+        return user in obj.starred_by.all()
 
     def get_logo_url(self, obj):
         return resolve_experience_logo_url(obj.logo_static_path)
