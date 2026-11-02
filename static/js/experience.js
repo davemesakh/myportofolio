@@ -12,19 +12,14 @@ function appendExperiencePeriod(container, period) {
     container.appendChild(time);
 }
 
-function experiencePostForm(action, csrfToken) {
-    const form = experienceElement("form");
-    form.method = "post";
-    form.action = action;
-    const token = experienceElement("input");
-    token.type = "hidden";
-    token.name = "csrfmiddlewaretoken";
-    token.value = csrfToken;
-    form.appendChild(token);
-    return form;
+const experienceApi = document.getElementById("experience-api-config")?.dataset;
+const EXPERIENCE_UUID_PLACEHOLDER = "00000000-0000-0000-0000-000000000000";
+
+function experienceUrl(pattern, id) {
+    return pattern.replace(EXPERIENCE_UUID_PLACEHOLDER, encodeURIComponent(id));
 }
 
-function buildExperienceCardElement(item, isAuthenticated, csrfToken) {
+function buildExperienceCardElement(item) {
     const card = experienceElement("article", "experience-item");
 
     if (item.logo_url) {
@@ -75,18 +70,22 @@ function buildExperienceCardElement(item, isAuthenticated, csrfToken) {
     }
 
     const star = experienceElement("div", "experience-star");
-    if (isAuthenticated && item.star_url && csrfToken) {
-        const form = experiencePostForm(item.star_url, csrfToken);
+    if (experienceApi.authenticated === "true") {
         const action = item.is_starred ? "Unstar" : "Star";
         const button = experienceElement(
             "button",
             `award-cancel experience-star-button${item.is_starred ? " is-starred" : ""}`,
             action
         );
-        button.type = "submit";
+        button.type = "button";
         button.setAttribute("aria-label", `${action} ${item.title}`);
-        form.appendChild(button);
-        star.appendChild(form);
+        button.setAttribute("aria-pressed", String(item.is_starred));
+        button.addEventListener("click", () => toggleExperienceStar(item, button));
+        star.appendChild(button);
+    } else {
+        const login = experienceElement("a", "award-cancel", "Log in to star");
+        login.href = experienceApi.loginUrl;
+        star.appendChild(login);
     }
     const count = item.star_count;
     star.appendChild(experienceElement(
@@ -94,18 +93,17 @@ function buildExperienceCardElement(item, isAuthenticated, csrfToken) {
     ));
     contributions.appendChild(star);
 
-    if (item.can_edit && item.edit_url) {
+    if (experienceApi.canEdit.trim() === "true") {
         const actions = experienceElement("div", "award-form-actions experience-item-actions");
         const edit = experienceElement("a", "award-cancel", "Edit");
-        edit.href = item.edit_url;
+        edit.href = experienceUrl(experienceApi.editUrl, item.id);
         actions.appendChild(edit);
-        if (item.can_delete && item.delete_url && csrfToken) {
-            const form = experiencePostForm(item.delete_url, csrfToken);
+        if (experienceApi.superuser === "true") {
             const button = experienceElement("button", "award-delete-confirm", "Delete");
-            button.type = "submit";
+            button.type = "button";
             button.setAttribute("aria-label", `Delete ${item.title}`);
-            form.appendChild(button);
-            actions.appendChild(form);
+            button.addEventListener("click", () => deleteExperience(item, button));
+            actions.appendChild(button);
         }
         contributions.appendChild(actions);
     }
@@ -122,7 +120,7 @@ async function fetchExperiences(searchQuery = "") {
     const loading = document.getElementById("experience-loading");
     const empty = document.getElementById("experience-empty");
     const error = document.getElementById("experience-error");
-    if (!grid || !loading || !empty || !error) return;
+    if (!grid || !loading || !empty || !error || !experienceApi) return;
 
     loading.hidden = false;
     grid.hidden = true;
@@ -133,26 +131,29 @@ async function fetchExperiences(searchQuery = "") {
     const controller = new AbortController();
     experiencesAbortController = controller;
     const url = searchQuery
-        ? `${grid.dataset.url}?title=${encodeURIComponent(searchQuery)}`
-        : grid.dataset.url;
+        ? `${experienceApi.listUrl}?title=${encodeURIComponent(searchQuery)}`
+        : experienceApi.listUrl;
 
     try {
-        const response = await fetch(url, { signal: controller.signal });
+        const response = await fetch(url, {
+            signal: controller.signal,
+            credentials: "same-origin",
+            headers: { Accept: "application/json" },
+        });
         if (!response.ok) throw new Error(`Experience request failed: ${response.status}`);
         const payload = await response.json();
-        if (!Array.isArray(payload.experiences)) throw new Error("Invalid Experience response");
+        if (!Array.isArray(payload)) throw new Error("Invalid Experience response");
         if (controller !== experiencesAbortController) return;
 
         grid.replaceChildren();
-        const csrfToken = document.getElementById("experience-csrf-token")?.value;
-        for (const item of payload.experiences) {
-            grid.appendChild(buildExperienceCardElement(item, payload.is_authenticated, csrfToken));
+        for (const item of payload) {
+            grid.appendChild(buildExperienceCardElement(item));
         }
-        grid.hidden = payload.experiences.length === 0;
+        grid.hidden = payload.length === 0;
         empty.textContent = searchQuery
             ? "No experiences match your search."
             : "Belum ada pengalaman yang ditambahkan.";
-        empty.hidden = payload.experiences.length !== 0;
+        empty.hidden = payload.length !== 0;
     } catch (fetchError) {
         if (fetchError.name === "AbortError" || controller !== experiencesAbortController) return;
         grid.replaceChildren();
@@ -183,15 +184,102 @@ function getCookie(name) {
 }
 
 function experienceErrorMessage(result, status) {
-    const errors = result?.errors;
-    if (errors && typeof errors === "object") {
-        const messages = Object.values(errors)
-            .flatMap((entries) => Array.isArray(entries) ? entries : [])
-            .map((entry) => entry?.message)
-            .filter(Boolean);
+    if (result && typeof result === "object") {
+        const messages = Object.entries(result).flatMap(([field, errors]) => {
+            const entries = Array.isArray(errors) ? errors : [errors];
+            return entries.filter((entry) => typeof entry === "string").map((message) =>
+                field === "detail" || field === "non_field_errors"
+                    ? message
+                    : `${field.replaceAll("_", " ")}: ${message}`
+            );
+        });
         if (messages.length) return messages.join(" ");
     }
-    return result?.message || `Request failed (HTTP ${status}).`;
+    return `Request failed (HTTP ${status}). Please refresh the page and try again.`;
+}
+
+async function experienceApiRequest(url, method, payload) {
+    const headers = { Accept: "application/json", "X-CSRFToken": getCookie("csrftoken") || "" };
+    if (payload !== undefined) headers["Content-Type"] = "application/json";
+    let response;
+    try {
+        response = await fetch(url, {
+            method,
+            credentials: "same-origin",
+            headers,
+            ...(payload !== undefined ? { body: JSON.stringify(payload) } : {}),
+        });
+    } catch (error) {
+        throw new Error("A network error occurred. Check the list before retrying the action.");
+    }
+    const data = response.status === 204 ? null : await response.json().catch(() => null);
+    if (!response.ok) throw new Error(experienceErrorMessage(data, response.status));
+    return { status: response.status, data };
+}
+
+function refreshExperienceSearch() {
+    clearTimeout(searchDebounceTimer);
+    return fetchExperiences(searchInput?.value.trim() || "");
+}
+
+function experienceFormPayload(form) {
+    const payload = {};
+    for (const name of ["title", "description", "category", "organization", "logo_static_path", "logo_alt"]) {
+        payload[name] = form.elements.namedItem(name).value;
+    }
+    for (const name of ["start_year", "start_month", "end_year", "end_month", "display_order"]) {
+        const value = form.elements.namedItem(name).value.trim();
+        if (value === "") {
+            // display_order has a model default; the date integers are nullable.
+            if (name !== "display_order") payload[name] = null;
+        } else {
+            const number = Number(value);
+            if (!Number.isInteger(number)) throw new Error(`${name.replaceAll("_", " ")}: Enter a whole number.`);
+            payload[name] = number;
+        }
+    }
+    const current = form.elements.namedItem("is_current");
+    if (current.type === "checkbox") {
+        payload.is_current = current.checked;
+    } else {
+        // Django's NullBooleanSelect uses "unknown", "true", and "false".
+        payload.is_current = current.value === "true" ? true : current.value === "false" ? false : null;
+    }
+    return payload;
+}
+
+async function toggleExperienceStar(item, button) {
+    if (button.disabled) return;
+    button.disabled = true;
+    try {
+        const result = await experienceApiRequest(experienceUrl(experienceApi.starUrl, item.id), "POST");
+        if (result.status !== 200 || result.data?.id !== item.id) {
+            throw new Error("Unexpected server response. Check the list before trying again.");
+        }
+        showToast("Success", result.data.is_starred ? "Experience starred!" : "Experience unstarred!", "success");
+        await refreshExperienceSearch();
+    } catch (error) {
+        showToast("Could not update star", error.message, "error");
+    } finally {
+        button.disabled = false;
+    }
+}
+
+async function deleteExperience(item, button) {
+    if (button.disabled || !window.confirm(`Delete ${item.title}? This cannot be undone.`)) return;
+    button.disabled = true;
+    try {
+        const result = await experienceApiRequest(experienceUrl(experienceApi.detailUrl, item.id), "DELETE");
+        if (result.status !== 204) {
+            throw new Error("Unexpected server response. Check the list before trying again.");
+        }
+        showToast("Success", "Experience successfully deleted!", "success");
+        await refreshExperienceSearch();
+    } catch (error) {
+        showToast("Could not delete Experience", error.message, "error");
+    } finally {
+        button.disabled = false;
+    }
 }
 
 async function addExperience(event) {
@@ -202,33 +290,17 @@ async function addExperience(event) {
     if (submitButton) submitButton.disabled = true;
 
     try {
-        const response = await fetch(experienceForm.dataset.ajaxUrl, {
-            method: "POST",
-            body: new FormData(experienceForm),
-            credentials: "same-origin",
-            headers: { "X-CSRFToken": getCookie("csrftoken") || "" },
-        });
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok) {
-            showToast("Failed to add Experience", experienceErrorMessage(result, response.status), "error");
-            return;
-        }
-        if (response.status !== 201 || !result.pk) {
-            showToast(
-                "Failed to add Experience",
-                "Unexpected server response. Check the Experience list before trying again.",
-                "error"
-            );
-            return;
+        const result = await experienceApiRequest(experienceApi.listUrl, "POST", experienceFormPayload(experienceForm));
+        if (result.status !== 201 || !result.data?.id) {
+            throw new Error("Unexpected server response. Check the Experience list before trying again.");
         }
 
         experienceForm.reset();
         closeExperienceModal();
-        showToast("Success", result.message || "Experience successfully added!", "success");
-        fetchExperiences(searchInput?.value.trim() || "");
+        showToast("Success", "Experience successfully added!", "success");
+        await refreshExperienceSearch();
     } catch (error) {
-        console.error("Could not add Experience:", error);
-        showToast("Failed to add Experience", "A network error occurred. Please try again.", "error");
+        showToast("Failed to add Experience", error.message, "error");
     } finally {
         if (submitButton) submitButton.disabled = false;
     }
