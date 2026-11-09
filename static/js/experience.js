@@ -321,10 +321,24 @@ async function editExperience(event) {
     submitButton.disabled = true;
 
     try {
-        const result = await experienceApiRequest(form.dataset.detailUrl, "PATCH", experienceFormPayload(form));
+        const payload = experienceFormPayload(form);
+        const result = await experienceApiRequest(form.dataset.detailUrl, "PATCH", payload);
         if (result.status !== 200 || result.data?.id !== form.dataset.experienceId) {
             throw new Error("Unexpected server response. Check the Experience list before trying again.");
         }
+        // Show the saved representation, including text cleaned by the serializer.
+        for (const name of Object.keys({ ...payload, display_order: result.data.display_order })) {
+            const field = form.elements.namedItem(name);
+            const value = result.data[name];
+            if (name === "is_current") {
+                if (field.type === "checkbox") field.checked = value === true;
+                else field.value = value === true ? "true" : value === false ? "false" : "unknown";
+            } else {
+                field.value = value ?? "";
+            }
+        }
+        const description = document.getElementById("edit-experience-description");
+        if (description) description.textContent = `Update ${result.data.title} and its contributions.`;
         showToast("Success", "Experience successfully updated!", "success");
     } catch (error) {
         let message = error.message;
@@ -335,7 +349,7 @@ async function editExperience(event) {
         }
         showToast("Failed to update Experience", message, "error");
     } finally {
-        // Keep all inputs, including nullable dates and status, on both success and failure.
+        // Failed requests leave every input available for correction or retry.
         submitButton.disabled = false;
     }
 }

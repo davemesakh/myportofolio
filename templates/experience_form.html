@@ -11,7 +11,7 @@
             <h1 id="experience-form-heading">
                 {% if is_update %}Edit Experience{% else %}Add an Experience{% endif %}
             </h1>
-            <p>
+            <p{% if is_update %} id="edit-experience-description"{% endif %}>
                 {% if is_update %}
                 Update {{ experience.title }} and its contributions.
                 {% else %}
