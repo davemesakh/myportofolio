@@ -70,6 +70,7 @@ class ExperienceAPITest(APITestCase):
         self.assertTrue(all(isinstance(error, str) for error in response.data[field]))
 
     def assert_crud_writes_denied(self):
+        self.experience.starred_by.add(self.editor)
         before = self.database_state()
         for method, url, payload in (
             ("post", self.list_url, self.payload),
@@ -219,9 +220,11 @@ class ExperienceAPITest(APITestCase):
 
     def test_editor_can_read_and_update_with_put_and_patch(self):
         self.client.force_authenticate(user=self.editor)
-        response = self.client.get(self.detail_url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["id"], str(self.experience.pk))
+        for url in (self.list_url, self.detail_url):
+            response = self.client.get(url)
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            record = response.data[0] if url == self.list_url else response.data
+            self.assertEqual(record["id"], str(self.experience.pk))
 
         response = self.client.put(
             self.detail_url, self.payload | {"title": "Editor PUT"}, format="json"
@@ -242,6 +245,7 @@ class ExperienceAPITest(APITestCase):
 
     def test_editor_cannot_create_or_delete(self):
         self.client.force_authenticate(user=self.editor)
+        self.experience.starred_by.add(self.visitor)
         before = self.database_state()
         for method, url in (("post", self.list_url), ("delete", self.detail_url)):
             with self.subTest(method=method):
@@ -267,9 +271,11 @@ class ExperienceAPITest(APITestCase):
 
     def test_superuser_can_read_and_update_with_put_and_patch(self):
         self.client.force_authenticate(user=self.owner)
-        response = self.client.get(self.detail_url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["id"], str(self.experience.pk))
+        for url in (self.list_url, self.detail_url):
+            response = self.client.get(url)
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            record = response.data[0] if url == self.list_url else response.data
+            self.assertEqual(record["id"], str(self.experience.pk))
         response = self.client.put(
             self.detail_url, self.payload | {"title": "Owner PUT"}, format="json"
         )
@@ -489,6 +495,24 @@ class ExperienceAPITest(APITestCase):
                 self.assertEqual(response.data["star_count"], 0)
                 self.assertFalse(self.experience.starred_by.exists())
 
+    def test_star_ignores_client_supplied_user_identity(self):
+        self.experience.starred_by.add(self.editor)
+        self.client.force_authenticate(user=self.visitor)
+        before = list(Experience.objects.values())
+        for expected in (True, False):
+            response = self.client.post(self.star_url, {
+                "user_id": self.owner.pk,
+                "user": self.owner.pk,
+                "starred_by": [self.owner.pk],
+            }, format="json")
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            self.assertIs(response.data["is_starred"], expected)
+            self.assertEqual(response.data["star_count"], 1 + int(expected))
+            self.assertTrue(self.experience.starred_by.filter(pk=self.editor.pk).exists())
+            self.assertFalse(self.experience.starred_by.filter(pk=self.owner.pk).exists())
+            self.assertEqual(list(Experience.objects.values()), before)
+            self.assertEqual(set(response.data), self.response_fields)
+
     def test_star_state_is_specific_to_the_current_viewer(self):
         self.experience.starred_by.add(self.visitor)
         for user, expected in ((self.visitor, True), (self.editor, False), (None, False)):
@@ -556,6 +580,7 @@ class ExperienceAPITest(APITestCase):
                 self.assertEqual(self.database_state(), before)
 
     def test_real_session_without_csrf_rejects_all_unsafe_operations(self):
+        self.experience.starred_by.add(self.visitor)
         client = APIClient(enforce_csrf_checks=True)
         self.assertTrue(client.login(username="owner", password=self.owner_password))
         self.assertEqual(int(client.session["_auth_user_id"]), self.owner.pk)
@@ -610,6 +635,7 @@ class ExperienceAPITest(APITestCase):
                     response = self.client.get(edit_url)
                     self.assertEqual(response.status_code, status.HTTP_200_OK)
                     self.assertContains(response, 'id="edit-experience-form"')
+                    self.assertContains(response, 'id="edit-experience-description"')
                     self.assertContains(response, f'data-detail-url="{self.detail_url}"')
                     self.assertContains(response, f'data-experience-id="{self.experience.pk}"')
                     self.assertContains(response, f'action="{edit_url}"')
@@ -663,6 +689,27 @@ class ExperienceAPITest(APITestCase):
                 record = client.get(self.list_url, {"title": payload["title"]}).data[0]
                 self.assertEqual(record["title"], payload["title"])
                 self.assertEqual(record["star_count"], 2)
+
+    def test_real_session_page_cookie_allows_star_put_and_delete(self):
+        # Every logged-in role receives a CSRF cookie on the actual list page.
+        for user in (self.visitor, self.editor, self.owner):
+            user.set_password(self.owner_password)
+            user.save()
+            client = APIClient(enforce_csrf_checks=True)
+            self.assertTrue(client.login(username=user.username, password=self.owner_password))
+            page = client.get(reverse("main:show_experience"))
+            self.assertEqual(page.status_code, status.HTTP_200_OK)
+            token = client.cookies["csrftoken"].value
+            for starred in (True, False):
+                response = client.post(self.star_url, format="json", HTTP_X_CSRFTOKEN=token)
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+                self.assertIs(response.data["is_starred"], starred)
+            if user == self.owner:
+                response = client.put(self.detail_url, self.payload, format="json", HTTP_X_CSRFTOKEN=token)
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+                response = client.delete(self.detail_url, HTTP_X_CSRFTOKEN=token)
+                self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+                self.assertFalse(Experience.objects.filter(pk=self.experience.pk).exists())
 
     def test_authenticated_list_uses_two_queries_for_one_four_and_eight_records(self):
         self.experience.starred_by.add(self.visitor)
