@@ -1,0 +1,9 @@
+# Ringkasan Penggunaan AI - Tugas Individu 5
+
+Pada Tugas 5, ChatGPT membantu menafsirkan ketentuan dan menyusun prompt serta batas tiap phase. Codex mengaudit kode Tutorial 5 terhadap setiap persyaratan yang diberikan, meninjau XSS dan izin, menemukan cleaner `strip_tags` yang belum ada untuk organisasi/alt text, lalu membantu mengimplementasikan cleaner dan merancang tests terarah. AI juga membantu menyusun dan meninjau jawaban reflektif serta dokumentasi ini, dan merencanakan pemeriksaan validasi, browser, serta deployment berikutnya. Jawaban reflektif Tugas 5 di README adalah draf dengan bantuan AI; saya tetap perlu memahami dan meninjaunya sebagai bagian dari pertanggungjawaban tugas.
+
+Kesimpulan AI tidak diterima hanya berdasarkan klaim bahwa fitur tersedia. Codex memeriksa source repository aktual, menjalankan Django check, pemeriksaan migrasi, tests otomatis (104 lulus pada Phase 2), pemeriksaan sintaks JavaScript, serta meninjau diff. Batas pekerjaan ditentukan melalui prompt pengguna; perubahan Phase 2 dibatasi pada form dan tests, sedangkan Phase 3 hanya dokumentasi. Ini merupakan verifikasi berbantuan AI dan alat, bukan klaim bahwa seluruh implementasi atau pengujian dilakukan sendiri tanpa bantuan. Pemeriksaan manual di browser, audit akhir, dan deployment masih direncanakan untuk tahap selanjutnya, bukan sudah selesai.
+
+AI dapat salah memahami kondisi repository atau menganggap fitur memenuhi rubrik hanya karena kodenya terlihat serupa. Saran keamanan tetap perlu ditinjau pada source dan diuji; penilaian kelengkapan harus dibandingkan dengan rubrik resmi, dan perilaku browser tidak boleh disimpulkan hanya dari analisis statis atau tests backend. Keterangan Tugas 5 ini dipindahkan dari README ke dokumen ini; tidak ada URL percakapan yang tersedia untuk ditautkan, sehingga tidak dibuat tautan atau log percakapan fiktif.
+
+Lihat [README](../README.md) untuk implementasi dan jawaban reflektif Tugas 5.

@@ -203,6 +203,93 @@ Jawaban Tugas 1 berikut dipertahankan sebagai refleksi tahap sebelumnya, ketika 
 
    Pada proyek ini, kartu dan toast menggunakan `textContent`; alt text dan atribut diatur melalui property/attribute yang sesuai, dan URL logo divalidasi. Form juga memakai `strip_tags` untuk judul, deskripsi, organisasi, dan alt text. Fungsi itu membuang tag, bukan seluruh isinya: `<script>alert('x')</script>` menjadi teks `alert('x')`, yang tetap tidak dijalankan oleh `textContent`. Sanitasi server membantu membersihkan input, sedangkan DOM API yang aman tetap diperlukan untuk melindungi rendering, termasuk data lama yang tidak melalui form.
 
+### Tugas 6
+
+#### Implementasi Experience dengan DRF
+
+Tugas 6 melanjutkan model `Experience` dari Tugas 3–5. Daftar, pencarian, tambah, ubah, star/unstar, dan hapus kini menggunakan Django REST Framework (DRF). Implementasi berada di [`main/serializers.py`](main/serializers.py), [`main/permissions.py`](main/permissions.py), [`main/api_views.py`](main/api_views.py), dan [`main/api_urls.py`](main/api_urls.py), dengan prefix `/api/v1/` dari `portofolio/urls.py`. Penjelasan Tugas 5 di atas dipertahankan sebagai riwayat implementasi sebelum integrasi DRF. Model Award dan skema database tidak diubah untuk penambahan AJAX editing.
+
+`ExperienceSerializer` memakai `ModelSerializer` dengan `Meta.fields` eksplisit. Field inputnya adalah `title`, `description`, `category`, `organization`, `logo_static_path`, `logo_alt`, `start_year`, `start_month`, `end_year`, `end_month`, `is_current`, dan `display_order`. Respons juga memuat `id`, `star_count`, `is_starred`, `description_paragraphs`, `start_period`, `end_period`, serta `logo_url` sebagai data baca saja. UUID tidak dapat diganti; timestamp, `source_key`, dan relasi `starred_by` tidak menjadi field input maupun keluaran API ini.
+
+Validasi tipe, panjang, pilihan kategori, dan rentang angka mengikuti field serializer/model. Validator khusus menerapkan `strip_tags(...).strip()` pada judul, deskripsi, organisasi, dan alt text; judul/deskripsi yang kosong setelah dibersihkan ditolak. Sumber logo harus berupa path statis relatif yang valid atau URL HTTPS yang didukung. Validasi antarfield menolak bulan tanpa tahun, tanggal akhir sebelum awal, serta pengalaman berstatus current yang masih memiliki tanggal akhir. Saat PATCH, nilai lama dari field yang tidak dikirim tetap diperhitungkan dalam validasi.
+
+`star_count` dan `is_starred` adalah `SerializerMethodField`, sehingga dihitung server dan tidak dapat ditentukan client. Jumlah star berasal dari relasi pengguna, sedangkan status star mengikuti pengguna pada request; pengunjung anonim mendapat `false`. Identitas pemberi star tidak ditampilkan.
+
+#### Endpoint dan hak akses
+
+`<uuid>` pada tabel berikut diganti dengan UUID Experience yang sebenarnya. Semua endpoint memakai `SessionAuthentication` dan sesi login Django; tidak ada token API baru yang diperlukan.
+
+| Metode | Endpoint | Fungsi | Respons sukses |
+| --- | --- | --- | --- |
+| GET | `/api/v1/experiences/` | Daftar sebagai array JSON, diurutkan berdasarkan `display_order`, lalu `id` | 200 |
+| GET | `/api/v1/experiences/?title=analyst` | Pencarian judul, organisasi, atau kategori | 200, termasuk array kosong bila tidak cocok |
+| POST | `/api/v1/experiences/` | Membuat Experience melalui serializer | 201 |
+| GET | `/api/v1/experiences/<uuid>/` | Detail satu Experience | 200 |
+| PUT / PATCH | `/api/v1/experiences/<uuid>/` | Update dengan validasi penuh / parsial | 200 |
+| DELETE | `/api/v1/experiences/<uuid>/` | Menghapus Experience | 204, tanpa body |
+| POST | `/api/v1/experiences/<uuid>/star/` | Toggle star milik pengguna yang mengirim request | 200 |
+
+Pencarian membaca `request.query_params`, memangkas whitespace, dan memakai `icontains` tanpa membedakan huruf besar/kecil. Walaupun parameter bernama `title`, pencocokannya juga mencakup organisasi dan kategori. Query kosong mengembalikan seluruh daftar. List dan detail juga mendukung HEAD serta OPTIONS untuk akses aman/metadata.
+
+| Peran | Baca/cari | Tambah | Ubah PUT/PATCH | Hapus | Star/unstar |
+| --- | --- | --- | --- | --- | --- |
+| Pengunjung anonim | Ya | 403 | 403 | 403 | 403 |
+| Pengguna biasa yang login | Ya | 403 | 403 | 403 | Ya |
+| Anggota grup `Editor` | Ya | 403 | Ya | 403 | Ya |
+| Superuser | Ya | Ya | Ya | Ya | Ya |
+
+Matriks ini menjelaskan respons API, bukan redirect halaman Django lama. `IsPortfolioOwnerOrEditorOrReadOnly` membatasi CRUD, sedangkan endpoint star memakai `IsAuthenticated`. Status `is_staff` saja tidak memberi hak tulis. Respons gagal yang relevan adalah 400 untuk input tidak valid, 403 untuk penolakan izin atau CSRF, 404 untuk UUID yang tidak ditemukan, dan 405 untuk metode yang tidak didukung pada request yang sudah lolos pemeriksaan akses.
+
+#### Integrasi AJAX dan keamanan
+
+[`static/js/experience.js`](static/js/experience.js) mengambil daftar dari DRF dan mempertahankan debounce pencarian 300 ms, pembatalan request lama, serta kondisi loading/kosong/error. Modal tambah mengirim JSON POST; star memakai POST dan hapus memakai DELETE. Setelah berhasil, ketiganya mengambil ulang daftar sesuai pencarian saat itu.
+
+Editing memakai halaman lama `/experience/<uuid>/edit/` dan [`templates/experience_form.html`](templates/experience_form.html). Form terisi dari instance Experience dan hanya dapat diakses Editor atau superuser. Pada mode edit, submit dicegat dengan `preventDefault()`, lalu `editExperience()` mengirim JSON PATCH ke URL detail DRF dengan UUID yang dirender oleh Django. Field tanggal kosong menjadi `null`, sedangkan `is_current` mempertahankan tiga nilai: `null`, `false`, atau `true`. Field yang dikirim dibatasi oleh `experienceFormPayload()`; field serializer yang dilindungi tidak ikut dikirim.
+
+PATCH sukses menampilkan toast tanpa reload atau redirect otomatis. Form tetap terbuka dan menyediakan tautan kembali ke daftar. Ketika daftar dibuka kembali, data diambil dari API; jika Browser Back memulihkan halaman dari cache, event `pageshow` memuat ulang data menggunakan teks pencarian yang dipulihkan. Input dipertahankan ketika validasi gagal. Pesan 400, 403, 404, dan kegagalan jaringan ditampilkan melalui toast; penolakan 403 juga memberi petunjuk mengenai kemungkinan sesi kedaluwarsa atau perubahan izin. Route edit Django dan fallback POST tetap tersedia; mode create tidak diubah menjadi PATCH.
+
+Semua request AJAX yang mengubah data memakai helper `experienceApiRequest()`, `credentials: "same-origin"`, dan header `X-CSRFToken` dari cookie `csrftoken`. Form memuat `{% csrf_token %}` dan middleware CSRF tetap aktif. Di sisi tampilan, kartu dan toast memakai DOM API seperti `textContent`, bukan memasukkan input melalui `innerHTML`. URL logo divalidasi di server dan protokolnya diperiksa sebelum dirender. `strip_tags` membantu membersihkan input, tetapi tidak menggantikan rendering teks yang aman maupun pemeriksaan izin server.
+
+#### Pertanyaan reflektif
+
+1. **Jelaskan apa yang dimaksud dengan REST dan mengapa mengembalikan JSON saja belum cukup untuk menyebut sebuah API sebagai RESTful! Jelaskan pula perbedaan PUT dan PATCH beserta contoh kapan masing-masing sebaiknya digunakan!**
+
+   REST (*Representational State Transfer*) adalah gaya arsitektur yang mengatur interaksi client dan server melalui representasi resource. Prinsipnya mencakup antarmuka yang seragam, pemisahan client/server, request yang mandiri (*stateless*), cache, dan sistem berlapis. JSON hanya format representasi data; endpoint yang mengembalikan JSON tetapi menghapus data melalui GET, misalnya, tidak mengikuti semantik HTTP yang sesuai. Pada Experience, URI koleksi dan detail mengidentifikasi resource, GET membaca, POST membuat, serta DELETE menghapus, dengan status HTTP yang menjelaskan hasilnya. Penggunaan sesi Django tetap perlu dibedakan dari prinsip stateless REST; format JSON dan pola URL saja tidak membuktikan seluruh batasan REST terpenuhi.
+
+   PUT digunakan ketika client bermaksud mengganti representasi resource secara lengkap, misalnya menyimpan seluruh data Experience dari sistem sinkronisasi. PATCH digunakan untuk perubahan sebagian, misalnya `PATCH /api/v1/experiences/<uuid>/` dengan `{"title": "Research Assistant"}` tanpa mengirim ulang deskripsi dan tanggal. PUT bersifat idempoten: pengiriman representasi yang sama berulang kali menghasilkan keadaan akhir yang sama. PATCH tidak selalu idempoten, tetapi pembaruan nilai judul seperti contoh ini bersifat idempoten. Di proyek ini PUT memakai `partial=False`, sedangkan PATCH memakai `partial=True`. PUT mewajibkan field required seperti judul dan deskripsi; jangan menganggap semua field opsional yang tidak dikirim otomatis dihapus. Form edit menggunakan PATCH, walaupun mengirim semua field yang dapat diedit.
+
+2. **Jelaskan peran serializer pada Django REST Framework! Apa keuntungannya dibandingkan merakit dictionary secara manual dengan JsonResponse seperti pada Tutorial 05?**
+
+   Serializer mengubah instance/queryset menjadi tipe data sederhana untuk dirender sebagai JSON, sekaligus memvalidasi data masuk sebelum membuat atau memperbarui model. `ModelSerializer` mengambil definisi field dan sejumlah validator dari model, lalu memungkinkan aturan khusus. Pada `ExperienceSerializer`, field dinyatakan eksplisit, teks dibersihkan, konsistensi tanggal diperiksa, dan `.save()` baru dipanggil setelah `.is_valid()` berhasil.
+
+   Pada Tutorial 05, `get_experiences_ajax()` menyusun dictionary keluaran secara manual; validasi penulisan ditangani terpisah oleh form. `JsonResponse` sendiri mengemas data menjadi respons JSON, bukan menyediakan validasi model atau aturan field baca saja. Serializer menyatukan kontrak data untuk list, detail, create, dan update, mengurangi pengulangan serta risiko perbedaan field, dan menghasilkan error per field yang dapat ditampilkan client. Contohnya, `star_count` tetap dihitung server dan tidak bisa diubah hanya dengan mengirim angka dari JavaScript. Aturan tambahan seperti validasi tanggal dan sanitasi tetap perlu ditulis, bukan otomatis diselesaikan DRF.
+
+3. **Jelaskan perbedaan autentikasi dan otorisasi pada Django REST Framework! Mengapa hak akses harus diperiksa dengan permission class di server, bukan hanya dengan menyembunyikan tombol di template?**
+
+   Autentikasi menentukan siapa pengirim request. `SessionAuthentication` mengenali pengguna melalui sesi login Django dan mengisi identitas pada request. Otorisasi menentukan apakah identitas tersebut boleh melakukan tindakan tertentu. Dalam proyek ini, pengguna biasa yang sudah terautentikasi boleh memberi star, tetapi tidak boleh mengubah Experience; anggota `Editor` boleh PATCH/PUT, sementara hanya superuser boleh membuat atau menghapus.
+
+   Tombol tersembunyi hanya mengatur antarmuka. Pengguna tetap dapat mengirim request langsung melalui alat HTTP atau JavaScript tanpa memakai tombol. Karena itu, permission class harus memeriksa metode dan peran pada server untuk setiap request. `IsPortfolioOwnerOrEditorOrReadOnly` menolak PATCH pengguna biasa meskipun payload dan UUID-nya benar, sedangkan `IsAuthenticated` menolak star anonim. Pemeriksaan ini melindungi data terlepas dari tampilan client.
+
+4. **Jelaskan mengapa permintaan yang mengubah data tetap memerlukan token CSRF ketika API memakai SessionAuthentication! Mengapa test yang memakai force_authenticate tidak cukup untuk membuktikan bahwa perlindungan CSRF berjalan?**
+
+   Browser dapat menyertakan cookie sesi secara otomatis pada request yang memenuhi aturan cookie. Situs penyerang dapat mencoba memanfaatkan sesi korban untuk menjalankan tindakan tanpa persetujuannya. Karena `SessionAuthentication` menggunakan sesi tersebut, request pengguna yang terautentikasi dengan metode tidak aman seperti POST, PUT, PATCH, dan DELETE tetap harus lolos pemeriksaan CSRF. Pada Experience, `fetch()` mengirim cookie melalui kredensial same-origin serta token melalui `X-CSRFToken`; token diperoleh dari cookie CSRF yang disediakan Django ketika form dirender. Izin Editor saja tidak menggantikan token ini, dan mengirim JSON saja bukan bukti perlindungan CSRF.
+
+   `force_authenticate` memasang pengguna langsung pada request test dan melewati alur autentikasi normal, sehingga tidak menguji pemeriksaan CSRF oleh `SessionAuthentication`. `APIClient` juga secara default tidak menegakkan CSRF. Test yang relevan memakai `APIClient(enforce_csrf_checks=True)` dan `.login()`: sesi nyata dibuat, lalu POST, PUT, PATCH, DELETE, dan star tanpa token harus menghasilkan 403 tanpa perubahan database. Test tambahan mengambil token dari halaman edit dan membuktikan PATCH bertoken berhasil untuk Editor dan superuser, sedangkan input tidak valid tetap ditolak tanpa mengubah data atau relasi star.
+
+#### Pengujian dan keterbatasan
+
+[`main/tests_api.py`](main/tests_api.py) memakai `APITestCase` dan kini berisi 35 metode test: 33 metode sebelumnya ditambah dua test terfokus untuk konfigurasi/prefill halaman edit dan PATCH dengan sesi serta CSRF nyata. Cakupannya meliputi kontrak respons, empat peran, CRUD, pencarian, sanitasi/validasi, field terlindungi, privasi star, integritas data pada request gagal, serta kompatibilitas endpoint lama. Test CSRF tanpa token yang diwajibkan tetap dipertahankan.
+
+| Pemeriksaan Phase 1 | Hasil yang diamati |
+| --- | --- |
+| `.\env\Scripts\python.exe manage.py test main.tests_api main.tests --noinput` | 139 Django tests lulus, termasuk regresi fitur yang sudah ada |
+| Delapan skenario JavaScript dengan harness Node/VM | Lulus: status nullable (3), error HTTP 400/403/404 (3), kegagalan jaringan, dan pencegahan submit ganda |
+| `node --check static/js/experience.js` dan `node --check static/js/toast.js` | Lulus |
+| Django system checks | Tidak ada masalah |
+| `git diff --check` | Lulus |
+
+Hasil di atas berasal dari Phase 1, bukan pengujian ulang pada fase dokumentasi. Delapan skenario JavaScript dijalankan melalui harness sementara, bukan browser. Warning direktori `staticfiles` yang belum tersedia muncul tanpa menggagalkan tests. Verifikasi manual browser **belum dilakukan** karena otomasi browser tidak tersedia untuk menyelesaikan pemeriksaan; upaya fallback dihentikan alat karena URL browser tidak dapat dipastikan. Karena itu, laporan ini tidak mengklaim keberhasilan edit visual, tidak adanya reload berdasarkan pengamatan browser, startup `runserver`, pembukaan Browsable API, atau pemeriksaan halaman Tutorial 07. Hal-hal tersebut masih perlu diverifikasi secara langsung. Tidak ada klaim deployment TI6 berhasil.
+
 ## Penggunaan AI
 
 - **ChatGPT:** membantu memahami ketentuan, menyusun tahapan/prompt, meninjau laporan, dan memberi masukan desain, sesuai keterangan pengguna.
@@ -218,8 +305,6 @@ Pada Tugas 3, ChatGPT dan Codex digunakan untuk merencanakan implementasi, menga
 
 [Ringkasan penggunaan AI Tugas 4](docs/ai-usage-tugas-4.md) menjelaskan peran ChatGPT dan Codex, perubahan terfokus, serta pemeriksaan yang dilakukan untuk autentikasi, hak akses, dan star/unstar Experience.
 
-Pada Tugas 5, ChatGPT membantu menafsirkan ketentuan dan menyusun prompt serta batas tiap phase. Codex mengaudit kode Tutorial 5 terhadap setiap persyaratan yang diberikan, meninjau XSS dan izin, menemukan cleaner `strip_tags` yang belum ada untuk organisasi/alt text, lalu membantu mengimplementasikan cleaner dan merancang tests terarah. AI juga membantu menyusun dan meninjau jawaban reflektif serta dokumentasi ini, dan merencanakan pemeriksaan validasi, browser, serta deployment berikutnya. Jawaban reflektif di atas adalah draf dengan bantuan AI; saya tetap perlu memahami dan meninjaunya sebagai bagian dari pertanggungjawaban tugas.
+[Ringkasan penggunaan AI Tugas 5](docs/ai-usage-tugas-5.md) menjelaskan bantuan ChatGPT dan Codex, strategi prompt, sanitasi Experience, pengujian, serta keterbatasan verifikasi.
 
-Kesimpulan AI tidak diterima hanya berdasarkan klaim bahwa fitur tersedia. Codex memeriksa source repository aktual, menjalankan Django check, pemeriksaan migrasi, tests otomatis (104 lulus pada Phase 2), pemeriksaan sintaks JavaScript, serta meninjau diff. Batas pekerjaan ditentukan melalui prompt pengguna; perubahan Phase 2 dibatasi pada form dan tests, sedangkan Phase 3 hanya dokumentasi. Ini merupakan verifikasi berbantuan AI dan alat, bukan klaim bahwa seluruh implementasi atau pengujian dilakukan sendiri tanpa bantuan. Pemeriksaan manual di browser, audit akhir, dan deployment masih direncanakan untuk tahap selanjutnya, bukan sudah selesai.
-
-AI dapat salah memahami kondisi repository atau menganggap fitur memenuhi rubrik hanya karena kodenya terlihat serupa. Saran keamanan tetap perlu ditinjau pada source dan diuji; penilaian kelengkapan harus dibandingkan dengan rubrik resmi, dan perilaku browser tidak boleh disimpulkan hanya dari analisis statis atau tests backend. Keterangan Tugas 5 ini dicatat langsung di README; tidak ada URL percakapan yang tersedia untuk ditautkan, sehingga tidak dibuat tautan atau log percakapan fiktif.
+[Ringkasan penggunaan AI Tugas 6](docs/ai-usage-tugas-6.md) memuat disclosure, peran mahasiswa, strategi prompt, dan log bantuan AI untuk audit DRF, AJAX editing melalui PATCH, tests, dan dokumentasi.
