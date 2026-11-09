@@ -595,6 +595,75 @@ class ExperienceAPITest(APITestCase):
         self.assertEqual(created.description, self.payload["description"])
         self.assertEqual(response.data["title"], created.title)
 
+    def test_edit_page_configures_patch_form_with_existing_nullable_values(self):
+        from django.templatetags.static import static
+
+        edit_url = reverse("main:update_experience", args=[self.experience.pk])
+        for user in (self.editor, self.owner):
+            self.client.force_login(user)
+            for current in (None, False, True):
+                with self.subTest(user=user.username, current=current):
+                    self.experience.is_current = current
+                    self.experience.end_year = None
+                    self.experience.end_month = None
+                    self.experience.save()
+                    response = self.client.get(edit_url)
+                    self.assertEqual(response.status_code, status.HTTP_200_OK)
+                    self.assertContains(response, 'id="edit-experience-form"')
+                    self.assertContains(response, f'data-detail-url="{self.detail_url}"')
+                    self.assertContains(response, f'data-experience-id="{self.experience.pk}"')
+                    self.assertContains(response, f'action="{edit_url}"')
+                    self.assertContains(response, f'src="{static("js/experience.js")}"')
+                    self.assertContains(response, 'name="csrfmiddlewaretoken"')
+                    form = response.context["form"]
+                    self.assertEqual(form["title"].value(), self.payload["title"])
+                    self.assertEqual(form["description"].value(), self.payload["description"])
+                    self.assertEqual(form["start_year"].value(), 2025)
+                    self.assertEqual(form["start_month"].value(), 6)
+                    self.assertIsNone(form["end_year"].value())
+                    self.assertIsNone(form["end_month"].value())
+                    self.assertIs(form["is_current"].value(), current)
+                    selected = {None: "unknown", False: "false", True: "true"}[current]
+                    self.assertIn(f'value="{selected}" selected', str(form["is_current"]))
+
+    def test_real_session_edit_page_token_allows_patch_and_preserves_stars(self):
+        self.editor.set_password(self.owner_password)
+        self.editor.save()
+        self.experience.starred_by.add(self.visitor, self.editor)
+        edit_url = reverse("main:update_experience", args=[self.experience.pk])
+        for user in (self.editor, self.owner):
+            with self.subTest(user=user.username):
+                client = APIClient(enforce_csrf_checks=True)
+                self.assertTrue(client.login(username=user.username, password=self.owner_password))
+                page = client.get(edit_url)
+                self.assertEqual(page.status_code, status.HTTP_200_OK)
+                token = client.cookies["csrftoken"].value
+                before = self.database_state()
+                response = client.patch(
+                    self.detail_url, self.payload | {"title": "<b></b>"},
+                    format="json", HTTP_X_CSRFTOKEN=token,
+                )
+                self.assert_validation_error(response, "title")
+                self.assertEqual(self.database_state(), before)
+
+                payload = self.payload | {
+                    "title": f"Updated by {user.username}",
+                    "is_current": None, "end_year": None, "end_month": None,
+                }
+                response = client.patch(
+                    self.detail_url, payload, format="json", HTTP_X_CSRFTOKEN=token,
+                )
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+                self.experience.refresh_from_db()
+                self.assertEqual(self.experience.title, payload["title"])
+                self.assertIsNone(self.experience.is_current)
+                self.assertIsNone(self.experience.end_year)
+                self.assertIsNone(self.experience.end_month)
+                self.assertEqual(self.database_state()[1], before[1])
+                record = client.get(self.list_url, {"title": payload["title"]}).data[0]
+                self.assertEqual(record["title"], payload["title"])
+                self.assertEqual(record["star_count"], 2)
+
     def test_authenticated_list_uses_two_queries_for_one_four_and_eight_records(self):
         self.experience.starred_by.add(self.visitor)
         self.client.force_authenticate(user=self.visitor)

@@ -213,7 +213,11 @@ async function experienceApiRequest(url, method, payload) {
         throw new Error("A network error occurred. Check the list before retrying the action.");
     }
     const data = response.status === 204 ? null : await response.json().catch(() => null);
-    if (!response.ok) throw new Error(experienceErrorMessage(data, response.status));
+    if (!response.ok) {
+        const error = new Error(experienceErrorMessage(data, response.status));
+        error.status = response.status;
+        throw error;
+    }
     return { status: response.status, data };
 }
 
@@ -309,6 +313,36 @@ async function addExperience(event) {
 const experienceForm = document.getElementById("add-experience-form");
 if (experienceForm) experienceForm.addEventListener("submit", addExperience);
 
+async function editExperience(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const submitButton = form.querySelector('button[type="submit"]');
+    if (submitButton.disabled) return;
+    submitButton.disabled = true;
+
+    try {
+        const result = await experienceApiRequest(form.dataset.detailUrl, "PATCH", experienceFormPayload(form));
+        if (result.status !== 200 || result.data?.id !== form.dataset.experienceId) {
+            throw new Error("Unexpected server response. Check the Experience list before trying again.");
+        }
+        showToast("Success", "Experience successfully updated!", "success");
+    } catch (error) {
+        let message = error.message;
+        if (error.status === 403) {
+            message += " Your session may have expired or your permissions changed. Log in again or refresh before retrying.";
+        } else if (error.status === 404) {
+            message = "This Experience no longer exists. Return to the Experience list.";
+        }
+        showToast("Failed to update Experience", message, "error");
+    } finally {
+        // Keep all inputs, including nullable dates and status, on both success and failure.
+        submitButton.disabled = false;
+    }
+}
+
+const editExperienceForm = document.getElementById("edit-experience-form");
+if (editExperienceForm) editExperienceForm.addEventListener("submit", editExperience);
+
 if (searchForm && searchInput) {
     searchInput.addEventListener("input", () => {
         clearTimeout(searchDebounceTimer);
@@ -321,4 +355,8 @@ if (searchForm && searchInput) {
     });
 }
 
-fetchExperiences("");
+fetchExperiences(searchInput?.value.trim() || "");
+window.addEventListener("pageshow", (event) => {
+    // Browser Back can restore the list from memory after an edit.
+    if (event.persisted && searchInput) refreshExperienceSearch();
+});

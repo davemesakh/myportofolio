@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}{% if is_update %}Edit{% else %}Add{% endif %} Experience - {{ name }}{% endblock title %}
 
@@ -20,6 +21,9 @@
         </header>
 
         <form method="post"
+              {% if is_update %}id="edit-experience-form"
+              data-detail-url="{% url 'api:experience-detail' experience.id %}"
+              data-experience-id="{{ experience.id }}"{% endif %}
               action="{% if is_update %}{% url 'main:update_experience' experience.id %}{% else %}{% url 'main:create_experience' %}{% endif %}"
               class="award-form" novalidate>
             {% csrf_token %}
@@ -41,9 +45,12 @@
                 <button class="award-action" type="submit">
                     {% if is_update %}Update Experience{% else %}Save Experience{% endif %}
                 </button>
-                <a class="award-cancel" href="{% url 'main:show_experience' %}">Cancel</a>
+                <a class="award-cancel" href="{% url 'main:show_experience' %}">{% if is_update %}Back to Experiences{% else %}Cancel{% endif %}</a>
             </div>
         </form>
     </div>
 </section>
+{% if is_update %}
+<script src="{% static 'js/experience.js' %}" defer></script>
+{% endif %}
 {% endblock content %}
