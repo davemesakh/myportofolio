@@ -5,7 +5,7 @@ from main.image_utils import (
     resolve_experience_logo_url,
     validate_experience_logo_source,
 )
-from main.models import Experience
+from main.models import Experience, Project
 
 
 class ExperienceSerializer(serializers.ModelSerializer):
@@ -122,3 +122,17 @@ class ExperienceSerializer(serializers.ModelSerializer):
         if errors:
             raise serializers.ValidationError(errors)
         return attrs
+
+
+class ProjectSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Project
+        fields = (
+            "id",
+            "title",
+            "description",
+            "tech_stack",
+            "project_url",
+            "project_image_url",
+        )
+        read_only_fields = ("id",)

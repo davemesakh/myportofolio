@@ -10,9 +10,9 @@ from rest_framework.decorators import (
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from main.models import Experience
-from main.permissions import IsPortfolioOwnerOrEditorOrReadOnly
-from main.serializers import ExperienceSerializer
+from main.models import Experience, Project
+from main.permissions import IsPortfolioOwnerOrEditorOrReadOnly, IsSuperuserOrReadOnly
+from main.serializers import ExperienceSerializer, ProjectSerializer
 
 
 @api_view(["GET", "HEAD", "POST"])
@@ -86,3 +86,39 @@ def api_logout(request):
     if request.auth is not None:
         request.auth.delete()
     return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(["GET", "HEAD", "POST"])
+@permission_classes([IsSuperuserOrReadOnly])
+def project_list(request):
+    if request.method in ("GET", "HEAD"):
+        projects = Project.objects.all().order_by("title", "id")
+        serializer = ProjectSerializer(projects, many=True)
+        return Response(serializer.data)
+
+    serializer = ProjectSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    serializer.save()
+    return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+@api_view(["GET", "HEAD", "PUT", "PATCH", "DELETE"])
+@permission_classes([IsSuperuserOrReadOnly])
+def project_detail(request, id):
+    project = get_object_or_404(Project, pk=id)
+    if request.method in ("GET", "HEAD"):
+        serializer = ProjectSerializer(project)
+        return Response(serializer.data)
+
+    if request.method == "DELETE":
+        project.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    serializer = ProjectSerializer(
+        project,
+        data=request.data,
+        partial=request.method == "PATCH",
+    )
+    serializer.is_valid(raise_exception=True)
+    serializer.save()
+    return Response(serializer.data)

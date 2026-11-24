@@ -15,3 +15,16 @@ class IsPortfolioOwnerOrEditorOrReadOnly(BasePermission):
             request.method in ("PUT", "PATCH")
             and request.user.groups.filter(name="Editor").exists()
         )
+
+
+class IsSuperuserOrReadOnly(BasePermission):
+    """Allow public reads and superuser-only writes."""
+
+    def has_permission(self, request, view):
+        if request.method in SAFE_METHODS:
+            return True
+        return bool(
+            request.user
+            and request.user.is_authenticated
+            and request.user.is_superuser
+        )
