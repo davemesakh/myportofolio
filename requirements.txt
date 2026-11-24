@@ -1,5 +1,6 @@
 django==5.2.17
 djangorestframework~=3.18.3
+django-cors-headers
 gunicorn
 whitenoise
 psycopg2-binary
